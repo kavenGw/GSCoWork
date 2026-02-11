@@ -1,0 +1,23 @@
+[Unit]
+Description=GSCoWork - Collaborative Office Calendar
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/gscowork
+ExecStart=/opt/gscowork/gscowork -port 8080 -db /opt/gscowork/data.db
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/gscowork
+
+[Install]
+WantedBy=multi-user.target
