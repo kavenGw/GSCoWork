@@ -10,10 +10,10 @@ import (
 	"time"
 )
 
-var tmpl *template.Template
+var templates map[string]*template.Template
 
 func initTemplates() {
-	tmpl = template.Must(template.New("").Funcs(template.FuncMap{
+	funcMap := template.FuncMap{
 		"seq": func(n int) []int {
 			s := make([]int, n)
 			for i := range s {
@@ -42,7 +42,34 @@ func initTemplates() {
 				return ""
 			}
 		},
-	}).ParseGlob("templates/*.html"))
+	}
+
+	templates = make(map[string]*template.Template)
+
+	// 独立页面（无 layout）
+	templates["login.html"] = template.Must(
+		template.New("login.html").Funcs(funcMap).ParseFiles("templates/login.html"),
+	)
+
+	// 使用 layout 的页面，每个单独解析避免 content 定义冲突
+	layoutPages := []string{
+		"home.html", "admin.html", "admin_edit.html",
+		"expense.html", "expense_history.html", "expense_detail.html",
+	}
+	for _, page := range layoutPages {
+		templates[page] = template.Must(
+			template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/"+page),
+		)
+	}
+}
+
+func renderTemplate(w http.ResponseWriter, name string, data interface{}) {
+	t, ok := templates[name]
+	if !ok {
+		http.Error(w, "模板未找到: "+name, http.StatusInternalServerError)
+		return
+	}
+	t.ExecuteTemplate(w, name, data)
 }
 
 // 登录页
@@ -51,7 +78,7 @@ func handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	tmpl.ExecuteTemplate(w, "login.html", nil)
+	renderTemplate(w, "login.html", nil)
 }
 
 // 提交登录
@@ -61,7 +88,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := getUserByUsername(username)
 	if err != nil || !checkPassword(user.Password, password) {
-		tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "用户名或密码错误"})
+		renderTemplate(w, "login.html", map[string]string{"Error": "用户名或密码错误"})
 		return
 	}
 
@@ -165,7 +192,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		PrevMonth:   fmt.Sprintf("%04d-%02d", prev.Year(), int(prev.Month())),
 		NextMonth:   fmt.Sprintf("%04d-%02d", next.Year(), int(next.Month())),
 	}
-	tmpl.ExecuteTemplate(w, "home.html", data)
+	renderTemplate(w, "home.html", data)
 }
 
 // 更新日程状态
@@ -197,7 +224,7 @@ func handleScheduleUpdate(w http.ResponseWriter, r *http.Request) {
 // 后台管理页
 func handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	users, _ := getAllUsers()
-	tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+	renderTemplate(w, "admin.html", map[string]interface{}{
 		"Users":       users,
 		"CurrentUser": getSession(r),
 	})
@@ -212,7 +239,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	if username == "" || password == "" || displayName == "" {
 		users, _ := getAllUsers()
-		tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+		renderTemplate(w, "admin.html", map[string]interface{}{
 			"Users":       users,
 			"CurrentUser": getSession(r),
 			"Error":       "所有字段必填",
@@ -223,7 +250,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	err := createUser(username, password, displayName, isAdmin)
 	if err != nil {
 		users, _ := getAllUsers()
-		tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+		renderTemplate(w, "admin.html", map[string]interface{}{
 			"Users":       users,
 			"CurrentUser": getSession(r),
 			"Error":       "创建失败：用户名可能已存在",
@@ -249,7 +276,7 @@ func handleEditUserPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl.ExecuteTemplate(w, "admin_edit.html", map[string]interface{}{
+	renderTemplate(w, "admin_edit.html", map[string]interface{}{
 		"User":        user,
 		"CurrentUser": getSession(r),
 	})
@@ -270,7 +297,7 @@ func handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if displayName == "" {
 		user, _ := getUserByID(id)
-		tmpl.ExecuteTemplate(w, "admin_edit.html", map[string]interface{}{
+		renderTemplate(w, "admin_edit.html", map[string]interface{}{
 			"User":        user,
 			"CurrentUser": getSession(r),
 			"Error":       "显示名称不能为空",
@@ -281,7 +308,7 @@ func handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	err = updateUser(id, displayName, password, isAdmin)
 	if err != nil {
 		user, _ := getUserByID(id)
-		tmpl.ExecuteTemplate(w, "admin_edit.html", map[string]interface{}{
+		renderTemplate(w, "admin_edit.html", map[string]interface{}{
 			"User":        user,
 			"CurrentUser": getSession(r),
 			"Error":       "更新失败",
@@ -305,7 +332,7 @@ func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// 防止删除自己
 	if id == sess.UserID {
 		users, _ := getAllUsers()
-		tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+		renderTemplate(w, "admin.html", map[string]interface{}{
 			"Users":       users,
 			"CurrentUser": sess,
 			"Error":       "不能删除自己",
@@ -316,7 +343,7 @@ func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	err = deleteUser(id)
 	if err != nil {
 		users, _ := getAllUsers()
-		tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+		renderTemplate(w, "admin.html", map[string]interface{}{
 			"Users":       users,
 			"CurrentUser": sess,
 			"Error":       "删除失败",
@@ -383,7 +410,7 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 		EndDate:     endDate,
 	}
 
-	tmpl.ExecuteTemplate(w, "expense.html", data)
+	renderTemplate(w, "expense.html", data)
 }
 
 // 计算费用（AJAX）
@@ -467,7 +494,7 @@ func handleExpenseSave(w http.ResponseWriter, r *http.Request) {
 			EndDate:     endDate,
 			Error:       "保存失败：" + err.Error(),
 		}
-		tmpl.ExecuteTemplate(w, "expense.html", data)
+		renderTemplate(w, "expense.html", data)
 		return
 	}
 
@@ -479,7 +506,7 @@ func handleExpenseHistory(w http.ResponseWriter, r *http.Request) {
 	sess := getSession(r)
 	records, _ := getAllExpenseRecords()
 
-	tmpl.ExecuteTemplate(w, "expense_history.html", map[string]interface{}{
+	renderTemplate(w, "expense_history.html", map[string]interface{}{
 		"CurrentUser": sess,
 		"Records":     records,
 	})
@@ -510,7 +537,7 @@ func handleExpenseDetail(w http.ResponseWriter, r *http.Request) {
 		totalCost += u.CalculatedCost
 	}
 
-	tmpl.ExecuteTemplate(w, "expense_detail.html", map[string]interface{}{
+	renderTemplate(w, "expense_detail.html", map[string]interface{}{
 		"CurrentUser": sess,
 		"Record":      record,
 		"Usages":      usages,
