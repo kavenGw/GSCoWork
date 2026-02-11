@@ -34,6 +34,8 @@ GOOS=linux GOARCH=amd64 go build -o gscowork .
 scp gscowork your-server:/opt/gscowork/
 ```
 
+## 服务运行
+
 systemd 服务示例 `/etc/systemd/system/gscowork.service`：
 
 ```ini
@@ -53,6 +55,18 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl enable --now gscowork
 ```
+
+## 直接运行
+
+```bash
+./gscowork -port 8080 -db /data.db
+```
+
+
+
+
+
+
 
 ## 技术栈
 
