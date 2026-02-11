@@ -31,6 +31,14 @@ func main() {
 	http.HandleFunc("/schedule", requireLogin(handleScheduleUpdate))
 	http.HandleFunc("/admin", requireAdmin(handleAdminPage))
 	http.HandleFunc("/admin/user", requireAdmin(handleCreateUser))
+	http.HandleFunc("/admin/user/edit", requireAdmin(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleUpdateUser(w, r)
+		} else {
+			handleEditUserPage(w, r)
+		}
+	}))
+	http.HandleFunc("/admin/user/delete", requireAdmin(handleDeleteUser))
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("GSCoWork 启动在 http://localhost%s", addr)

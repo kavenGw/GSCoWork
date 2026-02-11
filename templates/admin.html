@@ -21,7 +21,7 @@
     <table class="user-table">
         <thead>
             <tr>
-                <th>ID</th><th>用户名</th><th>显示名称</th><th>管理员</th><th>创建时间</th>
+                <th>ID</th><th>用户名</th><th>显示名称</th><th>管理员</th><th>创建时间</th><th>操作</th>
             </tr>
         </thead>
         <tbody>
@@ -32,6 +32,13 @@
                 <td>{{.DisplayName}}</td>
                 <td>{{if .IsAdmin}}是{{else}}否{{end}}</td>
                 <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+                <td class="actions">
+                    <a href="/admin/user/edit?id={{.ID}}" class="btn btn-edit">编辑</a>
+                    <form method="POST" action="/admin/user/delete" class="inline-form" onsubmit="return confirm('确定删除用户 {{.Username}} 吗？');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-delete">删除</button>
+                    </form>
+                </td>
             </tr>
             {{end}}
         </tbody>

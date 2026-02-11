@@ -1,0 +1,38 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<h2>编辑用户</h2>
+
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+<div class="admin-section">
+    <form method="POST" action="/admin/user/edit" class="admin-form">
+        <input type="hidden" name="id" value="{{.User.ID}}">
+
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" value="{{.User.Username}}" disabled>
+            <small>用户名不可修改</small>
+        </div>
+
+        <div class="form-group">
+            <label>显示名称</label>
+            <input type="text" name="display_name" value="{{.User.DisplayName}}" required>
+        </div>
+
+        <div class="form-group">
+            <label>新密码</label>
+            <input type="password" name="password" placeholder="留空则不修改">
+        </div>
+
+        <div class="form-group">
+            <label><input type="checkbox" name="is_admin" {{if .User.IsAdmin}}checked{{end}}> 管理员</label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn">保存</button>
+            <a href="/admin" class="btn btn-cancel">取消</a>
+        </div>
+    </form>
+</div>
+{{end}}
