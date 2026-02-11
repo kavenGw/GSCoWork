@@ -47,6 +47,8 @@ func main() {
 	http.HandleFunc("/expense/history", requireLogin(handleExpenseHistory))
 	http.HandleFunc("/expense/detail", requireLogin(handleExpenseDetail))
 	http.HandleFunc("/expense/delete", requireAdmin(handleExpenseDelete))
+	http.HandleFunc("/expense/user/add", requireAdmin(handleExpenseUserAdd))
+	http.HandleFunc("/expense/user/delete", requireAdmin(handleExpenseUserDelete))
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("GSCoWork 启动在 http://localhost%s", addr)

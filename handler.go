@@ -334,6 +334,7 @@ type ExpenseUserData struct {
 	UserID      int
 	Username    string
 	DisplayName string
+	IsAdmin     bool
 	Usage       float64
 	Cost        float64
 }
@@ -366,6 +367,7 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 			UserID:      u.ID,
 			Username:    u.Username,
 			DisplayName: u.DisplayName,
+			IsAdmin:     u.IsAdmin,
 			Usage:       0,
 			Cost:        0,
 		})
@@ -528,4 +530,44 @@ func handleExpenseDelete(w http.ResponseWriter, r *http.Request) {
 
 	deleteExpenseRecord(id)
 	http.Redirect(w, r, "/expense/history", http.StatusFound)
+}
+
+// 费用管理页面添加用户
+func handleExpenseUserAdd(w http.ResponseWriter, r *http.Request) {
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+	displayName := r.FormValue("display_name")
+
+	if username == "" || password == "" || displayName == "" {
+		http.Redirect(w, r, "/expense", http.StatusFound)
+		return
+	}
+
+	err := createUser(username, password, displayName, false)
+	if err != nil {
+		http.Redirect(w, r, "/expense", http.StatusFound)
+		return
+	}
+
+	http.Redirect(w, r, "/expense", http.StatusFound)
+}
+
+// 费用管理页面删除用户
+func handleExpenseUserDelete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.FormValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/expense", http.StatusFound)
+		return
+	}
+
+	// 不允许删除自己
+	sess := getSession(r)
+	if sess != nil && sess.UserID == id {
+		http.Redirect(w, r, "/expense", http.StatusFound)
+		return
+	}
+
+	deleteUser(id)
+	http.Redirect(w, r, "/expense", http.StatusFound)
 }
