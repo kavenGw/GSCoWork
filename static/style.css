@@ -455,3 +455,50 @@ body {
     margin-bottom: 12px;
     font-size: 14px;
 }
+
+/* 费用管理页面用户列表 */
+.expense-section + .expense-section {
+    margin-top: 24px;
+}
+
+.user-add-form {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.inline-form-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.inline-form-row input[type="text"],
+.inline-form-row input[type="password"] {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    flex: 1;
+    min-width: 120px;
+}
+
+.btn-add {
+    background: #27ae60;
+    color: #fff;
+    padding: 8px 16px;
+}
+
+.btn-add:hover {
+    background: #219a52;
+}
+
+.user-list-table {
+    margin-top: 12px;
+}
+
+.user-list-table th {
+    background: #f0f0f0;
+}
