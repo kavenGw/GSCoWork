@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -82,9 +83,9 @@ type CalendarDay struct {
 }
 
 type UserCalendar struct {
-	User     User
-	Weeks    [][]CalendarDay
-	IsOwner  bool
+	User    User
+	Weeks   [][]CalendarDay
+	IsOwner bool
 }
 
 type HomeData struct {
@@ -324,4 +325,207 @@ func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+// ========== 费用管理 ==========
+
+// 费用展示数据
+type ExpenseUserData struct {
+	UserID      int
+	Username    string
+	DisplayName string
+	Usage       float64
+	Cost        float64
+}
+
+type ExpensePageData struct {
+	CurrentUser *Session
+	Users       []ExpenseUserData
+	AccountFee  float64
+	ServerFee   float64
+	TotalUsage  float64
+	StartDate   string
+	EndDate     string
+	Error       string
+	Success     string
+}
+
+// 费用页面
+func handleExpensePage(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(r)
+	users, _ := getAllUsers()
+
+	// 默认日期范围：当月
+	now := time.Now()
+	startDate := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+	endDate := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+
+	var expenseUsers []ExpenseUserData
+	for _, u := range users {
+		expenseUsers = append(expenseUsers, ExpenseUserData{
+			UserID:      u.ID,
+			Username:    u.Username,
+			DisplayName: u.DisplayName,
+			Usage:       0,
+			Cost:        0,
+		})
+	}
+
+	data := ExpensePageData{
+		CurrentUser: sess,
+		Users:       expenseUsers,
+		AccountFee:  DefaultAccountFee,
+		ServerFee:   DefaultServerFee,
+		TotalUsage:  0,
+		StartDate:   startDate,
+		EndDate:     endDate,
+	}
+
+	tmpl.ExecuteTemplate(w, "expense.html", data)
+}
+
+// 计算费用（AJAX）
+func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
+	accountFee, _ := strconv.ParseFloat(r.FormValue("account_fee"), 64)
+	serverFee, _ := strconv.ParseFloat(r.FormValue("server_fee"), 64)
+
+	users, _ := getAllUsers()
+	userCount := len(users)
+	if userCount == 0 {
+		userCount = 1
+	}
+
+	var totalUsage float64
+	usages := make(map[int]float64)
+	for _, u := range users {
+		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		usages[u.ID] = usage
+		totalUsage += usage
+	}
+
+	results := make([]map[string]interface{}, 0)
+	for _, u := range users {
+		usage := usages[u.ID]
+		var cost float64
+		if totalUsage > 0 {
+			cost = (usage / totalUsage) * accountFee
+		}
+		cost += serverFee / 12.0 / float64(userCount)
+		cost = math.Round(cost*100) / 100 // 保留两位小数
+
+		results = append(results, map[string]interface{}{
+			"user_id": u.ID,
+			"usage":   usage,
+			"cost":    cost,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_usage": totalUsage,
+		"results":     results,
+	})
+}
+
+// 保存费用记录
+func handleExpenseSave(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(r)
+
+	startDate := r.FormValue("start_date")
+	endDate := r.FormValue("end_date")
+	accountFee, _ := strconv.ParseFloat(r.FormValue("account_fee"), 64)
+	serverFee, _ := strconv.ParseFloat(r.FormValue("server_fee"), 64)
+
+	users, _ := getAllUsers()
+	usages := make(map[int]float64)
+	for _, u := range users {
+		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		usages[u.ID] = usage
+	}
+
+	_, err := createExpenseRecord(startDate, endDate, accountFee, serverFee, usages)
+	if err != nil {
+		// 重新渲染页面并显示错误
+		var expenseUsers []ExpenseUserData
+		for _, u := range users {
+			expenseUsers = append(expenseUsers, ExpenseUserData{
+				UserID:      u.ID,
+				Username:    u.Username,
+				DisplayName: u.DisplayName,
+				Usage:       usages[u.ID],
+			})
+		}
+
+		data := ExpensePageData{
+			CurrentUser: sess,
+			Users:       expenseUsers,
+			AccountFee:  accountFee,
+			ServerFee:   serverFee,
+			StartDate:   startDate,
+			EndDate:     endDate,
+			Error:       "保存失败：" + err.Error(),
+		}
+		tmpl.ExecuteTemplate(w, "expense.html", data)
+		return
+	}
+
+	http.Redirect(w, r, "/expense/history", http.StatusFound)
+}
+
+// 费用历史记录
+func handleExpenseHistory(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(r)
+	records, _ := getAllExpenseRecords()
+
+	tmpl.ExecuteTemplate(w, "expense_history.html", map[string]interface{}{
+		"CurrentUser": sess,
+		"Records":     records,
+	})
+}
+
+// 费用记录详情
+func handleExpenseDetail(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(r)
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/expense/history", http.StatusFound)
+		return
+	}
+
+	record, err := getExpenseRecordByID(id)
+	if err != nil {
+		http.Redirect(w, r, "/expense/history", http.StatusFound)
+		return
+	}
+
+	usages, _ := getExpenseUsages(id)
+
+	// 计算总使用量和总费用
+	var totalUsage, totalCost float64
+	for _, u := range usages {
+		totalUsage += u.Usage
+		totalCost += u.CalculatedCost
+	}
+
+	tmpl.ExecuteTemplate(w, "expense_detail.html", map[string]interface{}{
+		"CurrentUser": sess,
+		"Record":      record,
+		"Usages":      usages,
+		"TotalUsage":  totalUsage,
+		"TotalCost":   math.Round(totalCost*100) / 100,
+	})
+}
+
+// 删除费用记录
+func handleExpenseDelete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.FormValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/expense/history", http.StatusFound)
+		return
+	}
+
+	deleteExpenseRecord(id)
+	http.Redirect(w, r, "/expense/history", http.StatusFound)
 }

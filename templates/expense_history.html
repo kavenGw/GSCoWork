@@ -1,0 +1,48 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<h2>费用历史记录</h2>
+
+<div class="expense-section">
+    <div class="expense-header">
+        <a href="/expense" class="btn btn-back">返回费用管理</a>
+    </div>
+
+    {{if .Records}}
+    <table class="user-table expense-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>日期范围</th>
+                <th>账户费用</th>
+                <th>服务器费用</th>
+                <th>记录时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Records}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.StartDate}} ~ {{.EndDate}}</td>
+                <td>¥{{printf "%.2f" .AccountFee}}</td>
+                <td>¥{{printf "%.2f" .ServerFee}}/年</td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+                <td class="actions">
+                    <a href="/expense/detail?id={{.ID}}" class="btn btn-edit">查看详情</a>
+                    {{if $.CurrentUser.IsAdmin}}
+                    <form method="POST" action="/expense/delete" class="inline-form" onsubmit="return confirm('确定删除此记录吗？');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-delete">删除</button>
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p class="empty-message">暂无历史记录</p>
+    {{end}}
+</div>
+{{end}}
