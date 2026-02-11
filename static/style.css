@@ -129,6 +129,12 @@ body {
 .day-cell.rest { background: #a8e6cf; color: #1b5e20; }
 .day-cell.fire { background: #ff8a80; color: #b71c1c; }
 
+/* 当前日期高亮 */
+.day-cell.today {
+    border: 3px solid #3498db;
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.5);
+}
+
 /* 后台管理 */
 .admin-section { margin-bottom: 32px; }
 .admin-section h3 { margin-bottom: 12px; }

@@ -24,7 +24,7 @@
                 {{range .}}
                 <td>
                     {{if .Day}}
-                    <div class="day-cell {{statusClass .Status}}{{if $isOwner}} editable{{end}}"
+                    <div class="day-cell {{statusClass .Status}}{{if $isOwner}} editable{{end}}{{if eq .Date $.Today}} today{{end}}"
                          {{if $isOwner}}onclick="toggleStatus(this, {{$userID}}, '{{.Date}}')"{{end}}
                          data-status="{{.Status}}">
                         <span class="day-num">{{.Day}}</span>
@@ -66,7 +66,7 @@ function statusClass(s) {
 function statusLabel(s) {
     switch(s) {
         case 2: return '休';
-        case 3: return '鸡';
+        case 3: return '🐄🐴';
         default: return '';
     }
 }

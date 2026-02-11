@@ -37,7 +37,7 @@ func initTemplates() {
 			case StatusRest:
 				return "休"
 			case StatusFire:
-				return "鸡"
+				return "🐄🐴"
 			default:
 				return ""
 			}
@@ -123,6 +123,7 @@ type HomeData struct {
 	MonthName   string
 	PrevMonth   string
 	NextMonth   string
+	Today       string
 }
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
@@ -166,9 +167,40 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 			}
 			days = append(days, CalendarDay{Day: d, Date: dateStr, Status: status})
 		}
-		// 补齐最后一周
-		for len(days)%7 != 0 {
-			days = append(days, CalendarDay{})
+		// 检查当前周是否需要显示下月日期
+		// 如果是当前月份，且今天所在的周延续到下个月，则显示下个月的开头几天
+		isCurrentMonth := year == now.Year() && month == int(now.Month())
+		showNextMonthDays := false
+		if isCurrentMonth {
+			todayWeekday := int(now.Weekday()) // 0=Sunday
+			// 计算今天到本周末（周六）还有几天
+			daysUntilSaturday := 6 - todayWeekday
+			// 今天的日期
+			todayDay := now.Day()
+			// 如果今天+剩余天数超过本月天数，说明本周延续到下月
+			if todayDay+daysUntilSaturday > daysInMonth {
+				showNextMonthDays = true
+			}
+		}
+
+		// 补齐最后一周（如果需要显示下月日期，则用下月日期填充）
+		if showNextMonthDays && len(days)%7 != 0 {
+			nextMonthStart := time.Date(year, time.Month(month)+1, 1, 0, 0, 0, 0, time.Local)
+			nextMonthSchedules, _ := getSchedules(u.ID, fmt.Sprintf("%04d-%02d", nextMonthStart.Year(), int(nextMonthStart.Month())))
+			d := 1
+			for len(days)%7 != 0 {
+				dateStr := fmt.Sprintf("%04d-%02d-%02d", nextMonthStart.Year(), int(nextMonthStart.Month()), d)
+				status := StatusDefault
+				if s, ok := nextMonthSchedules[dateStr]; ok {
+					status = s
+				}
+				days = append(days, CalendarDay{Day: d, Date: dateStr, Status: status})
+				d++
+			}
+		} else {
+			for len(days)%7 != 0 {
+				days = append(days, CalendarDay{})
+			}
 		}
 
 		var weeks [][]CalendarDay
@@ -191,6 +223,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		MonthName:   fmt.Sprintf("%d年%d月", year, month),
 		PrevMonth:   fmt.Sprintf("%04d-%02d", prev.Year(), int(prev.Month())),
 		NextMonth:   fmt.Sprintf("%04d-%02d", next.Year(), int(next.Month())),
+		Today:       now.Format("2006-01-02"),
 	}
 	renderTemplate(w, "home.html", data)
 }
