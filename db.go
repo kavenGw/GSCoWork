@@ -125,3 +125,45 @@ func getScheduleStatus(userID int, date string) int {
 	}
 	return status
 }
+
+func getUserByID(id int) (*User, error) {
+	u := &User{}
+	err := db.QueryRow(
+		"SELECT id, username, password, display_name, is_admin, created_at FROM users WHERE id = ?",
+		id,
+	).Scan(&u.ID, &u.Username, &u.Password, &u.DisplayName, &u.IsAdmin, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func updateUser(id int, displayName string, password string, isAdmin bool) error {
+	if password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		_, err = db.Exec(
+			"UPDATE users SET display_name = ?, password = ?, is_admin = ? WHERE id = ?",
+			displayName, string(hash), isAdmin, id,
+		)
+		return err
+	}
+	_, err := db.Exec(
+		"UPDATE users SET display_name = ?, is_admin = ? WHERE id = ?",
+		displayName, isAdmin, id,
+	)
+	return err
+}
+
+func deleteUser(id int) error {
+	// 先删除用户的日程数据
+	_, err := db.Exec("DELETE FROM schedules WHERE user_id = ?", id)
+	if err != nil {
+		return err
+	}
+	// 再删除用户
+	_, err = db.Exec("DELETE FROM users WHERE id = ?", id)
+	return err
+}

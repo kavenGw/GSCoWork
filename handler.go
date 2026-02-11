@@ -232,3 +232,96 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/admin", http.StatusFound)
 }
+
+// 编辑用户页面
+func handleEditUserPage(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/admin", http.StatusFound)
+		return
+	}
+
+	user, err := getUserByID(id)
+	if err != nil {
+		http.Redirect(w, r, "/admin", http.StatusFound)
+		return
+	}
+
+	tmpl.ExecuteTemplate(w, "admin_edit.html", map[string]interface{}{
+		"User":        user,
+		"CurrentUser": getSession(r),
+	})
+}
+
+// 更新用户
+func handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+	idStr := r.FormValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/admin", http.StatusFound)
+		return
+	}
+
+	displayName := r.FormValue("display_name")
+	password := r.FormValue("password") // 可选，留空不修改
+	isAdmin := r.FormValue("is_admin") == "on"
+
+	if displayName == "" {
+		user, _ := getUserByID(id)
+		tmpl.ExecuteTemplate(w, "admin_edit.html", map[string]interface{}{
+			"User":        user,
+			"CurrentUser": getSession(r),
+			"Error":       "显示名称不能为空",
+		})
+		return
+	}
+
+	err = updateUser(id, displayName, password, isAdmin)
+	if err != nil {
+		user, _ := getUserByID(id)
+		tmpl.ExecuteTemplate(w, "admin_edit.html", map[string]interface{}{
+			"User":        user,
+			"CurrentUser": getSession(r),
+			"Error":       "更新失败",
+		})
+		return
+	}
+
+	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+// 删除用户
+func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(r)
+	idStr := r.FormValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/admin", http.StatusFound)
+		return
+	}
+
+	// 防止删除自己
+	if id == sess.UserID {
+		users, _ := getAllUsers()
+		tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+			"Users":       users,
+			"CurrentUser": sess,
+			"Error":       "不能删除自己",
+		})
+		return
+	}
+
+	err = deleteUser(id)
+	if err != nil {
+		users, _ := getAllUsers()
+		tmpl.ExecuteTemplate(w, "admin.html", map[string]interface{}{
+			"Users":       users,
+			"CurrentUser": sess,
+			"Error":       "删除失败",
+		})
+		return
+	}
+
+	http.Redirect(w, r, "/admin", http.StatusFound)
+}
