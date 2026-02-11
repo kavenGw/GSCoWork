@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - GSCoWork</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-box">
+            <h1>GSCoWork</h1>
+            {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+            <form method="POST" action="/login">
+                <input type="text" name="username" placeholder="用户名" required autofocus>
+                <input type="password" name="password" placeholder="密码" required>
+                <button type="submit">登录</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

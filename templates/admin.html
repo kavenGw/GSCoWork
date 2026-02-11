@@ -1,0 +1,40 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<h2>后台管理</h2>
+
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+<div class="admin-section">
+    <h3>创建用户</h3>
+    <form method="POST" action="/admin/user" class="admin-form">
+        <input type="text" name="username" placeholder="用户名" required>
+        <input type="password" name="password" placeholder="密码" required>
+        <input type="text" name="display_name" placeholder="显示名称" required>
+        <label><input type="checkbox" name="is_admin"> 管理员</label>
+        <button type="submit">创建</button>
+    </form>
+</div>
+
+<div class="admin-section">
+    <h3>用户列表</h3>
+    <table class="user-table">
+        <thead>
+            <tr>
+                <th>ID</th><th>用户名</th><th>显示名称</th><th>管理员</th><th>创建时间</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Users}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.Username}}</td>
+                <td>{{.DisplayName}}</td>
+                <td>{{if .IsAdmin}}是{{else}}否{{end}}</td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

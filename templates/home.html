@@ -1,0 +1,74 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="month-nav">
+    <a href="/?month={{.PrevMonth}}">&larr; 上月</a>
+    <h2>{{.MonthName}}</h2>
+    <a href="/?month={{.NextMonth}}">下月 &rarr;</a>
+</div>
+
+{{range .Calendars}}
+<div class="user-calendar">
+    <h3>{{.User.DisplayName}}</h3>
+    <table class="calendar">
+        <thead>
+            <tr>
+                <th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{$isOwner := .IsOwner}}
+            {{$userID := .User.ID}}
+            {{range .Weeks}}
+            <tr>
+                {{range .}}
+                <td>
+                    {{if .Day}}
+                    <div class="day-cell {{statusClass .Status}}{{if $isOwner}} editable{{end}}"
+                         {{if $isOwner}}onclick="toggleStatus(this, {{$userID}}, '{{.Date}}')"{{end}}
+                         data-status="{{.Status}}">
+                        <span class="day-num">{{.Day}}</span>
+                        <span class="day-label">{{statusLabel .Status}}</span>
+                    </div>
+                    {{end}}
+                </td>
+                {{end}}
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+<script>
+function toggleStatus(el, userID, date) {
+    fetch('/schedule', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'user_id=' + userID + '&date=' + encodeURIComponent(date)
+    })
+    .then(r => r.json())
+    .then(data => {
+        el.dataset.status = data.status;
+        el.className = 'day-cell ' + statusClass(data.status) + ' editable';
+        el.querySelector('.day-label').textContent = statusLabel(data.status);
+    });
+}
+
+function statusClass(s) {
+    switch(s) {
+        case 2: return 'rest';
+        case 3: return 'fire';
+        default: return 'default';
+    }
+}
+
+function statusLabel(s) {
+    switch(s) {
+        case 2: return '休';
+        case 3: return '鸡';
+        default: return '';
+    }
+}
+</script>
+{{end}}

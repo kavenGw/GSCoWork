@@ -1,0 +1,26 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSCoWork</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="logo">GSCoWork</a>
+        {{if .CurrentUser}}
+        <div class="nav-right">
+            <span>{{.CurrentUser.Username}}</span>
+            {{if .CurrentUser.IsAdmin}}<a href="/admin">后台管理</a>{{end}}
+            <a href="/logout">退出</a>
+        </div>
+        {{end}}
+    </nav>
+    <main class="container">
+        {{template "content" .}}
+    </main>
+</body>
+</html>
+{{end}}
