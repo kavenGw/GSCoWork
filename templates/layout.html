@@ -13,6 +13,7 @@
         {{if .CurrentUser}}
         <div class="nav-right">
             <span>{{.CurrentUser.Username}}</span>
+            <a href="/expense">费用管理</a>
             {{if .CurrentUser.IsAdmin}}<a href="/admin">后台管理</a>{{end}}
             <a href="/logout">退出</a>
         </div>

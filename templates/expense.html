@@ -1,0 +1,138 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<h2>费用管理</h2>
+
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+{{if .Success}}<p class="success">{{.Success}}</p>{{end}}
+
+<div class="expense-section">
+    <div class="expense-header">
+        <h3>费用配置</h3>
+        <a href="/expense/history" class="btn btn-history">查看历史记录</a>
+    </div>
+
+    <form id="expense-form" method="POST" action="/expense/save">
+        <div class="expense-config">
+            <div class="config-row">
+                <div class="form-group">
+                    <label>日期范围</label>
+                    <div class="date-range">
+                        <input type="date" name="start_date" id="start_date" value="{{.StartDate}}" required>
+                        <span>至</span>
+                        <input type="date" name="end_date" id="end_date" value="{{.EndDate}}" required>
+                    </div>
+                </div>
+            </div>
+            <div class="config-row">
+                <div class="form-group">
+                    <label>账户费用</label>
+                    <input type="number" name="account_fee" id="account_fee" value="{{.AccountFee}}" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>服务器费用（年费）</label>
+                    <input type="number" name="server_fee" id="server_fee" value="{{.ServerFee}}" step="0.01" required>
+                </div>
+            </div>
+            <div class="config-info">
+                <p>计算公式：用户费用 = (用户使用量 / 总使用量) × 账户费用 + 服务器费用 / 12 / 用户数量</p>
+            </div>
+        </div>
+
+        <div class="expense-users">
+            <h3>用户使用量</h3>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>用户</th>
+                        <th>使用量</th>
+                        <th>费用</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Users}}
+                    <tr data-user-id="{{.UserID}}">
+                        <td>{{.DisplayName}} ({{.Username}})</td>
+                        <td>
+                            <input type="number"
+                                   name="usage_{{.UserID}}"
+                                   class="usage-input"
+                                   data-user-id="{{.UserID}}"
+                                   value="{{.Usage}}"
+                                   step="0.01"
+                                   min="0"
+                                   placeholder="输入使用量">
+                        </td>
+                        <td class="cost-cell" data-user-id="{{.UserID}}">¥0.00</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td><strong>合计</strong></td>
+                        <td id="total-usage">0</td>
+                        <td id="total-cost">¥0.00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="expense-actions">
+            <button type="button" class="btn btn-calculate" onclick="calculateExpense()">计算费用</button>
+            <button type="submit" class="btn btn-save">保存记录</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function calculateExpense() {
+    const form = document.getElementById('expense-form');
+    const formData = new FormData(form);
+
+    fetch('/expense/calculate', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 更新总使用量
+        document.getElementById('total-usage').textContent = data.total_usage.toFixed(2);
+
+        // 更新每个用户的费用
+        let totalCost = 0;
+        data.results.forEach(result => {
+            const costCell = document.querySelector(`.cost-cell[data-user-id="${result.user_id}"]`);
+            if (costCell) {
+                costCell.textContent = '¥' + result.cost.toFixed(2);
+                totalCost += result.cost;
+            }
+        });
+
+        document.getElementById('total-cost').textContent = '¥' + totalCost.toFixed(2);
+    })
+    .catch(error => {
+        console.error('计算失败:', error);
+        alert('计算失败，请重试');
+    });
+}
+
+// 监听使用量输入变化，自动计算
+let debounceTimer;
+document.querySelectorAll('.usage-input').forEach(input => {
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(calculateExpense, 300);
+    });
+});
+
+// 监听费用配置变化
+document.getElementById('account_fee').addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(calculateExpense, 300);
+});
+document.getElementById('server_fee').addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(calculateExpense, 300);
+});
+</script>
+{{end}}

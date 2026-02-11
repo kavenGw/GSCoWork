@@ -1,0 +1,57 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<h2>费用记录详情</h2>
+
+<div class="expense-section">
+    <div class="expense-header">
+        <a href="/expense/history" class="btn btn-back">返回历史记录</a>
+    </div>
+
+    <div class="expense-info">
+        <div class="info-row">
+            <span class="info-label">日期范围：</span>
+            <span class="info-value">{{.Record.StartDate}} ~ {{.Record.EndDate}}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">账户费用：</span>
+            <span class="info-value">¥{{printf "%.2f" .Record.AccountFee}}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">服务器费用：</span>
+            <span class="info-value">¥{{printf "%.2f" .Record.ServerFee}}/年</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">记录时间：</span>
+            <span class="info-value">{{.Record.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+        </div>
+    </div>
+
+    <h3>用户费用明细</h3>
+    <table class="user-table expense-table">
+        <thead>
+            <tr>
+                <th>用户</th>
+                <th>使用量</th>
+                <th>费用</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Usages}}
+            <tr>
+                <td>{{.DisplayName}} ({{.Username}})</td>
+                <td>{{printf "%.2f" .Usage}}</td>
+                <td>¥{{printf "%.2f" .CalculatedCost}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td><strong>合计</strong></td>
+                <td><strong>{{printf "%.2f" .TotalUsage}}</strong></td>
+                <td><strong>¥{{printf "%.2f" .TotalCost}}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{{end}}

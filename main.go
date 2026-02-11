@@ -40,6 +40,14 @@ func main() {
 	}))
 	http.HandleFunc("/admin/user/delete", requireAdmin(handleDeleteUser))
 
+	// 费用管理路由
+	http.HandleFunc("/expense", requireLogin(handleExpensePage))
+	http.HandleFunc("/expense/calculate", requireLogin(handleExpenseCalculate))
+	http.HandleFunc("/expense/save", requireLogin(handleExpenseSave))
+	http.HandleFunc("/expense/history", requireLogin(handleExpenseHistory))
+	http.HandleFunc("/expense/detail", requireLogin(handleExpenseDetail))
+	http.HandleFunc("/expense/delete", requireAdmin(handleExpenseDelete))
+
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("GSCoWork 启动在 http://localhost%s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))

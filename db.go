@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"log"
 
-	_ "modernc.org/sqlite"
 	"golang.org/x/crypto/bcrypt"
+	_ "modernc.org/sqlite"
 )
 
 var db *sql.DB
@@ -35,6 +35,25 @@ func initDB(dbPath string) {
 	)`)
 
 	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_schedules_user_date ON schedules(user_id, date)`)
+
+	// 费用记录表
+	db.Exec(`CREATE TABLE IF NOT EXISTS expense_records (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		account_fee REAL NOT NULL DEFAULT 550,
+		server_fee REAL NOT NULL DEFAULT 99,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
+
+	// 用户使用量表
+	db.Exec(`CREATE TABLE IF NOT EXISTS expense_usages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		expense_id INTEGER NOT NULL REFERENCES expense_records(id),
+		user_id INTEGER NOT NULL,
+		usage REAL NOT NULL DEFAULT 0,
+		calculated_cost REAL NOT NULL DEFAULT 0
+	)`)
 
 	// 创建默认 admin 账号
 	var count int
@@ -165,5 +184,131 @@ func deleteUser(id int) error {
 	}
 	// 再删除用户
 	_, err = db.Exec("DELETE FROM users WHERE id = ?", id)
+	return err
+}
+
+// ========== 费用相关 ==========
+
+// 创建费用记录
+func createExpenseRecord(startDate, endDate string, accountFee, serverFee float64, usages map[int]float64) (int64, error) {
+	result, err := db.Exec(
+		`INSERT INTO expense_records (start_date, end_date, account_fee, server_fee) VALUES (?, ?, ?, ?)`,
+		startDate, endDate, accountFee, serverFee,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	expenseID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	// 计算总使用量
+	var totalUsage float64
+	for _, u := range usages {
+		totalUsage += u
+	}
+
+	// 获取用户数量
+	userCount := len(usages)
+	if userCount == 0 {
+		userCount = 1
+	}
+
+	// 保存每个用户的使用量和计算的费用
+	for userID, usage := range usages {
+		var calculatedCost float64
+		if totalUsage > 0 {
+			calculatedCost = (usage / totalUsage) * accountFee
+		}
+		calculatedCost += serverFee / 12.0 / float64(userCount)
+
+		_, err = db.Exec(
+			`INSERT INTO expense_usages (expense_id, user_id, usage, calculated_cost) VALUES (?, ?, ?, ?)`,
+			expenseID, userID, usage, calculatedCost,
+		)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return expenseID, nil
+}
+
+// 获取所有费用记录
+func getAllExpenseRecords() ([]ExpenseRecord, error) {
+	rows, err := db.Query(`SELECT id, start_date, end_date, account_fee, server_fee, created_at
+		FROM expense_records ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []ExpenseRecord
+	for rows.Next() {
+		var r ExpenseRecord
+		rows.Scan(&r.ID, &r.StartDate, &r.EndDate, &r.AccountFee, &r.ServerFee, &r.CreatedAt)
+		records = append(records, r)
+	}
+	return records, nil
+}
+
+// 获取费用记录详情
+func getExpenseRecordByID(id int) (*ExpenseRecord, error) {
+	r := &ExpenseRecord{}
+	err := db.QueryRow(
+		`SELECT id, start_date, end_date, account_fee, server_fee, created_at FROM expense_records WHERE id = ?`,
+		id,
+	).Scan(&r.ID, &r.StartDate, &r.EndDate, &r.AccountFee, &r.ServerFee, &r.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// 获取费用记录的用户使用量
+func getExpenseUsages(expenseID int) ([]ExpenseUsage, error) {
+	rows, err := db.Query(`
+		SELECT eu.id, eu.expense_id, eu.user_id, u.username, u.display_name, eu.usage, eu.calculated_cost
+		FROM expense_usages eu
+		LEFT JOIN users u ON eu.user_id = u.id
+		WHERE eu.expense_id = ?
+		ORDER BY eu.calculated_cost DESC
+	`, expenseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var usages []ExpenseUsage
+	for rows.Next() {
+		var eu ExpenseUsage
+		var username, displayName sql.NullString
+		rows.Scan(&eu.ID, &eu.ExpenseID, &eu.UserID, &username, &displayName, &eu.Usage, &eu.CalculatedCost)
+		if username.Valid {
+			eu.Username = username.String
+		} else {
+			eu.Username = "已删除用户"
+		}
+		if displayName.Valid {
+			eu.DisplayName = displayName.String
+		} else {
+			eu.DisplayName = "已删除用户"
+		}
+		usages = append(usages, eu)
+	}
+	return usages, nil
+}
+
+// 删除费用记录
+func deleteExpenseRecord(id int) error {
+	// 先删除使用量记录
+	_, err := db.Exec("DELETE FROM expense_usages WHERE expense_id = ?", id)
+	if err != nil {
+		return err
+	}
+	// 再删除费用记录
+	_, err = db.Exec("DELETE FROM expense_records WHERE id = ?", id)
 	return err
 }
