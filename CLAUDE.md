@@ -18,6 +18,15 @@ go build -o gscowork .
 # 自定义参数
 ./gscowork -port 9090 -db /path/to/data.db
 
+# 后台运行（守护进程模式）
+sudo ./gscowork start              # 后台启动
+sudo ./gscowork stop               # 停止服务
+sudo ./gscowork restart            # 重启服务
+sudo ./gscowork status             # 查看运行状态
+
+# 自定义 PID 文件和端口
+sudo ./gscowork -port 9090 -pid /var/run/gscowork.pid start
+
 # 交叉编译到 Linux
 GOOS=linux GOARCH=amd64 go build -o gscowork .
 ```
