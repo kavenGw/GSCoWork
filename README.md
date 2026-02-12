@@ -114,6 +114,34 @@ sudo journalctl -u gscowork -f
 ./gscowork -port 8080 -db data.db
 ```
 
+## 内置后台运行模式
+
+程序内置了守护进程功能，无需 systemd 即可后台运行：
+
+```bash
+# 后台启动
+sudo ./gscowork start
+
+# 停止服务
+sudo ./gscowork stop
+
+# 重启服务
+sudo ./gscowork restart
+
+# 查看运行状态
+./gscowork status
+```
+
+可以组合使用参数：
+
+```bash
+# 指定端口和 PID 文件
+sudo ./gscowork -port 9090 -pid /var/run/gscowork.pid start
+```
+
+默认 PID 文件位置：`/var/run/gscowork.pid`
+默认日志文件位置：`/var/run/gscowork.log`
+
 
 
 
