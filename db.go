@@ -254,6 +254,24 @@ func getAllExpenseRecords() ([]ExpenseRecord, error) {
 	return records, nil
 }
 
+// 获取最近N条费用记录
+func getRecentExpenseRecords(limit int) ([]ExpenseRecord, error) {
+	rows, err := db.Query(`SELECT id, start_date, end_date, account_fee, server_fee, created_at
+		FROM expense_records ORDER BY created_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []ExpenseRecord
+	for rows.Next() {
+		var r ExpenseRecord
+		rows.Scan(&r.ID, &r.StartDate, &r.EndDate, &r.AccountFee, &r.ServerFee, &r.CreatedAt)
+		records = append(records, r)
+	}
+	return records, nil
+}
+
 // 获取费用记录详情
 func getExpenseRecordByID(id int) (*ExpenseRecord, error) {
 	r := &ExpenseRecord{}

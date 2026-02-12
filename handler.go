@@ -367,15 +367,16 @@ type ExpenseUserData struct {
 }
 
 type ExpensePageData struct {
-	CurrentUser *Session
-	Users       []ExpenseUserData
-	AccountFee  float64
-	ServerFee   float64
-	TotalUsage  float64
-	StartDate   string
-	EndDate     string
-	Error       string
-	Success     string
+	CurrentUser   *Session
+	Users         []ExpenseUserData
+	AccountFee    float64
+	ServerFee     float64
+	TotalUsage    float64
+	StartDate     string
+	EndDate       string
+	RecentRecords []ExpenseRecord
+	Error         string
+	Success       string
 }
 
 // 费用页面
@@ -400,14 +401,18 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// 获取最近3条费用记录
+	recentRecords, _ := getRecentExpenseRecords(3)
+
 	data := ExpensePageData{
-		CurrentUser: sess,
-		Users:       expenseUsers,
-		AccountFee:  DefaultAccountFee,
-		ServerFee:   DefaultServerFee,
-		TotalUsage:  0,
-		StartDate:   startDate,
-		EndDate:     endDate,
+		CurrentUser:   sess,
+		Users:         expenseUsers,
+		AccountFee:    DefaultAccountFee,
+		ServerFee:     DefaultServerFee,
+		TotalUsage:    0,
+		StartDate:     startDate,
+		EndDate:       endDate,
+		RecentRecords: recentRecords,
 	}
 
 	renderTemplate(w, "expense.html", data)

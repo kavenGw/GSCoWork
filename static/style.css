@@ -414,6 +414,24 @@ body {
     background: #7f8c8d;
 }
 
+.btn-view {
+    background: #3498db;
+    color: #fff;
+    padding: 4px 12px;
+    font-size: 13px;
+}
+
+.btn-view:hover {
+    background: #2980b9;
+}
+
+.no-records {
+    text-align: center;
+    color: #888;
+    padding: 20px;
+    font-size: 14px;
+}
+
 .expense-info {
     background: #f8f9fa;
     border-radius: 8px;
