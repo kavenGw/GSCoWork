@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-GSCoWork 是一个协作办公日历 Web 应用，团队成员可查看彼此日程并标记每天的工作状态（默认/休息/鸡血）。
+GSCoWork 是一个协作办公日历 Web 应用，团队成员可查看彼此日程并标记每天的工作状态（默认/休息/🐮🐴）。
 
 ## 构建与运行
 
@@ -62,5 +62,5 @@ GOOS=linux GOARCH=amd64 go build -o gscowork .
 
 ## 数据库
 
-SQLite，两张表：`users` 和 `schedules`。首次启动自动建表。状态值：1=默认，2=休息，3=鸡血（见 `model.go` 常量）。
+SQLite，两张表：`users` 和 `schedules`。首次启动自动建表。状态值：1=默认，2=休息，3=🐮🐴（见 `model.go` 常量）。
 

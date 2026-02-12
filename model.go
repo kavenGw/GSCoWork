@@ -15,7 +15,7 @@ type Schedule struct {
 	ID     int
 	UserID int
 	Date   string // YYYY-MM-DD
-	Status int    // 1=默认 2=休息 3=鸡血
+	Status int    // 1=默认 2=休息 3=🐮🐴
 }
 
 const (

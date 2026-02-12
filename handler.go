@@ -37,7 +37,7 @@ func initTemplates() {
 			case StatusRest:
 				return "休"
 			case StatusFire:
-				return "鸡"
+				return "🐮🐴"
 			default:
 				return ""
 			}
