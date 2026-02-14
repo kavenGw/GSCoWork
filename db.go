@@ -36,6 +36,14 @@ func initDB(dbPath string) {
 
 	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_schedules_user_date ON schedules(user_id, date)`)
 
+	// 持久化 session 表（用于"记住我"功能）
+	db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+		id TEXT PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users(id),
+		expires_at DATETIME NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
+
 	// 费用记录表
 	db.Exec(`CREATE TABLE IF NOT EXISTS expense_records (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,6 +190,8 @@ func deleteUser(id int) error {
 	if err != nil {
 		return err
 	}
+	// 删除用户的 session
+	deleteUserSessions(id)
 	// 再删除用户
 	_, err = db.Exec("DELETE FROM users WHERE id = ?", id)
 	return err
@@ -310,5 +320,43 @@ func deleteExpenseRecord(id int) error {
 	}
 	// 再删除费用记录
 	_, err = db.Exec("DELETE FROM expense_records WHERE id = ?", id)
+	return err
+}
+
+// ========== Session 持久化 ==========
+
+// 保存 session 到数据库
+func saveSessionToDB(sessionID string, userID int, expiresAt string) error {
+	_, err := db.Exec(
+		`INSERT OR REPLACE INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)`,
+		sessionID, userID, expiresAt,
+	)
+	return err
+}
+
+// 从数据库获取 session
+func getSessionFromDB(sessionID string) (userID int, expiresAt string, err error) {
+	err = db.QueryRow(
+		`SELECT user_id, expires_at FROM sessions WHERE id = ?`,
+		sessionID,
+	).Scan(&userID, &expiresAt)
+	return
+}
+
+// 从数据库删除 session
+func deleteSessionFromDB(sessionID string) error {
+	_, err := db.Exec("DELETE FROM sessions WHERE id = ?", sessionID)
+	return err
+}
+
+// 清理过期的 session
+func cleanExpiredSessions() error {
+	_, err := db.Exec("DELETE FROM sessions WHERE expires_at < datetime('now')")
+	return err
+}
+
+// 删除用户的所有 session（用于用户删除时）
+func deleteUserSessions(userID int) error {
+	_, err := db.Exec("DELETE FROM sessions WHERE user_id = ?", userID)
 	return err
 }
