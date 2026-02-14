@@ -64,6 +64,9 @@ func runServer() {
 	initDB(*dbPath)
 	initTemplates()
 
+	// 启动 session 清理任务
+	startSessionCleanup()
+
 	// 静态资源
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 

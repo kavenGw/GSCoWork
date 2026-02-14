@@ -85,6 +85,7 @@ func handleLoginPage(w http.ResponseWriter, r *http.Request) {
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	rememberMe := r.FormValue("remember") == "on"
 
 	user, err := getUserByUsername(username)
 	if err != nil || !checkPassword(user.Password, password) {
@@ -92,7 +93,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createSession(w, user)
+	createSession(w, user, rememberMe)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 

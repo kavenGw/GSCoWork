@@ -58,6 +58,22 @@ body {
     font-size: 14px;
 }
 
+.login-box .remember-me {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+}
+
+.login-box .remember-me input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
 .login-box button {
     width: 100%;
     padding: 10px;
