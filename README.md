@@ -33,79 +33,7 @@ go build -o gscowork .
 
 ```bash
 GOOS=linux GOARCH=amd64 go build -o gscowork .
-```
-
-### 2. 上传文件
-
-```bash
-scp gscowork deploy/gscowork.service deploy/gscowork.sh your-server:/opt/gscowork/
-```
-
-### 3. 安装服务
-
-```bash
-ssh your-server
-cd /opt/gscowork
-chmod +x gscowork.sh
-sudo ./gscowork.sh install
-```
-
-## 服务管理命令
-
-使用 `deploy/gscowork.sh` 脚本管理服务：
-
-```bash
-# 安装服务（首次部署）
-sudo ./gscowork.sh install
-
-# 启动服务
-sudo ./gscowork.sh start
-
-# 停止服务
-sudo ./gscowork.sh stop
-
-# 重启服务
-sudo ./gscowork.sh restart
-
-# 查看状态
-./gscowork.sh status
-
-# 查看实时日志
-./gscowork.sh logs
-
-# 查看最近50条日志
-./gscowork.sh logs-recent
-
-# 更新程序（重新编译后）
-sudo ./gscowork.sh update
-
-# 卸载服务
-sudo ./gscowork.sh uninstall
-```
-
-### 使用 systemctl 直接管理
-
-```bash
-# 启动
-sudo systemctl start gscowork
-
-# 停止
-sudo systemctl stop gscowork
-
-# 重启
-sudo systemctl restart gscowork
-
-# 查看状态
-sudo systemctl status gscowork
-
-# 开机自启
-sudo systemctl enable gscowork
-
-# 禁用开机自启
-sudo systemctl disable gscowork
-
-# 查看日志
-sudo journalctl -u gscowork -f
+sudo ./gscowork start &
 ```
 
 ## 直接运行（开发测试）
@@ -113,38 +41,6 @@ sudo journalctl -u gscowork -f
 ```bash
 ./gscowork -port 8080 -db data.db
 ```
-
-## 内置后台运行模式
-
-程序内置了守护进程功能，无需 systemd 即可后台运行：
-
-```bash
-# 后台启动
-sudo ./gscowork start
-
-# 停止服务
-sudo ./gscowork stop
-
-# 重启服务
-sudo ./gscowork restart
-
-# 查看运行状态
-./gscowork status
-```
-
-可以组合使用参数：
-
-```bash
-# 指定端口和 PID 文件
-sudo ./gscowork -port 9090 -pid /var/run/gscowork.pid start
-```
-
-默认 PID 文件位置：`/var/run/gscowork.pid`
-默认日志文件位置：`/var/run/gscowork.log`
-
-
-
-
 
 
 
