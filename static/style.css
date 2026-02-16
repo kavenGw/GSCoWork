@@ -412,6 +412,16 @@ body {
     background: #219a52;
 }
 
+.btn-cache {
+    background: #f39c12;
+    color: #fff;
+    padding: 10px 24px;
+}
+
+.btn-cache:hover {
+    background: #d68910;
+}
+
 .btn-history {
     background: #9b59b6;
     color: #fff;
