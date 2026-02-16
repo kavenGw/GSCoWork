@@ -12,9 +12,9 @@ import (
 
 const (
 	// Session 有效期
-	SessionDuration         = 24 * time.Hour      // 普通 session：1 天
-	RememberMeDuration      = 30 * 24 * time.Hour // 记住我：30 天
-	SessionCleanupInterval  = 1 * time.Hour       // 清理过期 session 间隔
+	SessionDuration        = 24 * time.Hour      // 普通 session：1 天
+	RememberMeDuration     = 30 * 24 * time.Hour // 记住我：30 天
+	SessionCleanupInterval = 1 * time.Hour       // 清理过期 session 间隔
 )
 
 type Session struct {

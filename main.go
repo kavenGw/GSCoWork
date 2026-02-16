@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	port   *int
-	dbPath *string
+	port    *int
+	dbPath  *string
 	pidFile *string
 )
 
