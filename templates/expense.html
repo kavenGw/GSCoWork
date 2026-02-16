@@ -84,7 +84,8 @@
                 </div>
             </div>
             <div class="config-info">
-                <p>计算公式：用户费用 = (用户使用量 / 总使用量) × 账户费用 + 服务器费用 / 12 / 用户数量</p>
+                <p>计算公式：用户费用 = 补贴额 + (用户使用量 / 总使用量) × 剩余费用</p>
+                <p>其中：补贴额 = 总费用 × (补/100)，剩余费用 = 总费用 - 所有补贴总额，总费用 = 账户费用 + 服务器费用/12</p>
             </div>
         </div>
 
@@ -95,6 +96,7 @@
                     <tr>
                         <th>用户</th>
                         <th>使用量</th>
+                        <th>补(%)</th>
                         <th>费用</th>
                     </tr>
                 </thead>
@@ -112,6 +114,17 @@
                                    min="0"
                                    placeholder="输入使用量">
                         </td>
+                        <td>
+                            <input type="number"
+                                   name="supplement_{{.UserID}}"
+                                   class="supplement-input"
+                                   data-user-id="{{.UserID}}"
+                                   value="{{.Supplement}}"
+                                   step="0.01"
+                                   min="0"
+                                   max="100"
+                                   placeholder="补%">
+                        </td>
                         <td class="cost-cell" data-user-id="{{.UserID}}">¥0.00</td>
                     </tr>
                     {{end}}
@@ -120,6 +133,7 @@
                     <tr class="total-row">
                         <td><strong>合计</strong></td>
                         <td id="total-usage">0</td>
+                        <td id="total-supplement">0%</td>
                         <td id="total-cost">¥0.00</td>
                     </tr>
                 </tfoot>
@@ -147,6 +161,13 @@ function calculateExpense() {
         // 更新总使用量
         document.getElementById('total-usage').textContent = data.total_usage.toFixed(2);
 
+        // 计算总补贴百分比
+        let totalSupplement = 0;
+        data.results.forEach(result => {
+            totalSupplement += result.supplement || 0;
+        });
+        document.getElementById('total-supplement').textContent = totalSupplement.toFixed(2) + '%';
+
         // 更新每个用户的费用
         let totalCost = 0;
         data.results.forEach(result => {
@@ -168,6 +189,14 @@ function calculateExpense() {
 // 监听使用量输入变化，自动计算
 let debounceTimer;
 document.querySelectorAll('.usage-input').forEach(input => {
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(calculateExpense, 300);
+    });
+});
+
+// 监听补贴输入变化，自动计算
+document.querySelectorAll('.supplement-input').forEach(input => {
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(calculateExpense, 300);

@@ -364,6 +364,7 @@ type ExpenseUserData struct {
 	DisplayName string
 	IsAdmin     bool
 	Usage       float64
+	Supplement  float64 // 补：额外承担总费用的百分比
 	Cost        float64
 }
 
@@ -427,26 +428,55 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 
 	var totalUsage float64
 	usages := make(map[int]float64)
+	supplements := make(map[int]float64)
 	for _, u := range users {
 		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		supplement, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("supplement_%d", u.ID)), 64)
 		usages[u.ID] = usage
+		supplements[u.ID] = supplement
 		totalUsage += usage
 	}
+
+	// 计算总费用（月度）
+	totalFee := accountFee + serverFee/12.0
+
+	// 计算所有用户的补贴总额
+	var totalSupplement float64
+	for _, supplement := range supplements {
+		if supplement > 0 {
+			totalSupplement += totalFee * (supplement / 100.0)
+		}
+	}
+
+	// 剩余费用（需要按原公式分摊的部分）
+	remainingFee := totalFee - totalSupplement
 
 	results := make([]map[string]interface{}, 0)
 	for _, u := range users {
 		usage := usages[u.ID]
+		supplement := supplements[u.ID]
 		var cost float64
-		if totalUsage > 0 {
-			cost = (usage / totalUsage) * accountFee
+
+		// 先计算该用户的补贴部分
+		if supplement > 0 {
+			cost = totalFee * (supplement / 100.0)
 		}
-		cost += serverFee / 12.0 / float64(userCount)
+
+		// 再加上剩余费用的分摊部分
+		if totalUsage > 0 && remainingFee > 0 {
+			cost += (usage / totalUsage) * remainingFee
+		} else if remainingFee > 0 {
+			// 如果没有使用量，平均分摊
+			cost += remainingFee / float64(userCount)
+		}
+
 		cost = math.Round(cost*100) / 100 // 保留两位小数
 
 		results = append(results, map[string]interface{}{
-			"user_id": u.ID,
-			"usage":   usage,
-			"cost":    cost,
+			"user_id":    u.ID,
+			"usage":      usage,
+			"supplement": supplement,
+			"cost":       cost,
 		})
 	}
 
@@ -467,22 +497,28 @@ func handleExpenseSave(w http.ResponseWriter, r *http.Request) {
 	serverFee, _ := strconv.ParseFloat(r.FormValue("server_fee"), 64)
 
 	users, _ := getAllUsers()
-	usages := make(map[int]float64)
+	userInputs := make(map[int]UserExpenseInput)
 	for _, u := range users {
 		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
-		usages[u.ID] = usage
+		supplement, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("supplement_%d", u.ID)), 64)
+		userInputs[u.ID] = UserExpenseInput{
+			Usage:      usage,
+			Supplement: supplement,
+		}
 	}
 
-	_, err := createExpenseRecord(startDate, endDate, accountFee, serverFee, usages)
+	_, err := createExpenseRecord(startDate, endDate, accountFee, serverFee, userInputs)
 	if err != nil {
 		// 重新渲染页面并显示错误
 		var expenseUsers []ExpenseUserData
 		for _, u := range users {
+			input := userInputs[u.ID]
 			expenseUsers = append(expenseUsers, ExpenseUserData{
 				UserID:      u.ID,
 				Username:    u.Username,
 				DisplayName: u.DisplayName,
-				Usage:       usages[u.ID],
+				Usage:       input.Usage,
+				Supplement:  input.Supplement,
 			})
 		}
 
@@ -531,19 +567,21 @@ func handleExpenseDetail(w http.ResponseWriter, r *http.Request) {
 
 	usages, _ := getExpenseUsages(id)
 
-	// 计算总使用量和总费用
-	var totalUsage, totalCost float64
+	// 计算总使用量、总补贴和总费用
+	var totalUsage, totalSupplement, totalCost float64
 	for _, u := range usages {
 		totalUsage += u.Usage
+		totalSupplement += u.Supplement
 		totalCost += u.CalculatedCost
 	}
 
 	renderTemplate(w, "expense_detail.html", map[string]interface{}{
-		"CurrentUser": sess,
-		"Record":      record,
-		"Usages":      usages,
-		"TotalUsage":  totalUsage,
-		"TotalCost":   math.Round(totalCost*100) / 100,
+		"CurrentUser":     sess,
+		"Record":          record,
+		"Usages":          usages,
+		"TotalUsage":      totalUsage,
+		"TotalSupplement": totalSupplement,
+		"TotalCost":       math.Round(totalCost*100) / 100,
 	})
 }
 
