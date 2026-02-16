@@ -42,6 +42,7 @@ type ExpenseUsage struct {
 	Username       string
 	DisplayName    string
 	Usage          float64 // 使用量
+	Supplement     float64 // 补：额外承担总费用的百分比（如3表示承担3%）
 	CalculatedCost float64 // 计算出的费用
 }
 
