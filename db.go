@@ -323,6 +323,19 @@ func deleteExpenseRecord(id int) error {
 	return err
 }
 
+// 获取最新的费用记录（用于自动计算下一个周期）
+func getLatestExpenseRecord() (*ExpenseRecord, error) {
+	r := &ExpenseRecord{}
+	err := db.QueryRow(
+		`SELECT id, start_date, end_date, account_fee, server_fee, created_at
+		FROM expense_records ORDER BY created_at DESC LIMIT 1`,
+	).Scan(&r.ID, &r.StartDate, &r.EndDate, &r.AccountFee, &r.ServerFee, &r.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // ========== Session 持久化 ==========
 
 // 保存 session 到数据库

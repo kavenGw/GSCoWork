@@ -384,10 +384,31 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 	sess := getSession(r)
 	users, _ := getAllUsers()
 
-	// 默认日期范围：当月
-	now := time.Now()
-	startDate := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
-	endDate := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+	// 默认日期范围：根据上一个周期自动计算
+	// 例如上一个周期是1.12 - 2.12，下一个就是2.12 - 3.12
+	var startDate, endDate string
+	latestRecord, err := getLatestExpenseRecord()
+	if err == nil && latestRecord != nil {
+		// 有上一个周期，根据上一个周期计算
+		// 新的开始日期 = 上一个周期的结束日期
+		startDate = latestRecord.EndDate
+
+		// 新的结束日期 = 上一个周期的结束日期 + 1个月
+		prevEndDate, parseErr := time.Parse("2006-01-02", latestRecord.EndDate)
+		if parseErr == nil {
+			nextEndDate := prevEndDate.AddDate(0, 1, 0)
+			endDate = nextEndDate.Format("2006-01-02")
+		} else {
+			// 解析失败，使用当月
+			now := time.Now()
+			endDate = time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+		}
+	} else {
+		// 没有上一个周期，默认当月
+		now := time.Now()
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+		endDate = time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+	}
 
 	var expenseUsers []ExpenseUserData
 	for _, u := range users {
