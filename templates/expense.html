@@ -142,12 +142,92 @@
 
         <div class="expense-actions">
             <button type="button" class="btn btn-calculate" onclick="calculateExpense()">计算费用</button>
+            <button type="button" class="btn btn-cache" onclick="cacheExpenseData()">缓存数据</button>
             <button type="submit" class="btn btn-save">保存记录</button>
         </div>
     </form>
 </div>
 
 <script>
+const EXPENSE_CACHE_KEY = 'expense_form_cache';
+
+// 缓存表单数据到 localStorage
+function cacheExpenseData() {
+    const cacheData = {
+        account_fee: document.getElementById('account_fee').value,
+        server_fee: document.getElementById('server_fee').value,
+        usages: {},
+        supplements: {},
+        cached_at: new Date().toISOString()
+    };
+
+    // 收集所有用户的使用量和补贴
+    document.querySelectorAll('.usage-input').forEach(input => {
+        const userId = input.dataset.userId;
+        cacheData.usages[userId] = input.value;
+    });
+
+    document.querySelectorAll('.supplement-input').forEach(input => {
+        const userId = input.dataset.userId;
+        cacheData.supplements[userId] = input.value;
+    });
+
+    localStorage.setItem(EXPENSE_CACHE_KEY, JSON.stringify(cacheData));
+    alert('数据已缓存！下次打开页面将自动加载缓存数据。');
+}
+
+// 从 localStorage 加载缓存数据
+function loadCachedData() {
+    const cached = localStorage.getItem(EXPENSE_CACHE_KEY);
+    if (!cached) return;
+
+    try {
+        const cacheData = JSON.parse(cached);
+
+        // 恢复费用配置
+        if (cacheData.account_fee) {
+            document.getElementById('account_fee').value = cacheData.account_fee;
+        }
+        if (cacheData.server_fee) {
+            document.getElementById('server_fee').value = cacheData.server_fee;
+        }
+
+        // 恢复用户使用量
+        if (cacheData.usages) {
+            for (const [userId, value] of Object.entries(cacheData.usages)) {
+                const input = document.querySelector(`.usage-input[data-user-id="${userId}"]`);
+                if (input && value) {
+                    input.value = value;
+                }
+            }
+        }
+
+        // 恢复用户补贴
+        if (cacheData.supplements) {
+            for (const [userId, value] of Object.entries(cacheData.supplements)) {
+                const input = document.querySelector(`.supplement-input[data-user-id="${userId}"]`);
+                if (input && value) {
+                    input.value = value;
+                }
+            }
+        }
+
+        // 自动计算费用
+        calculateExpense();
+
+        // 显示缓存时间提示
+        if (cacheData.cached_at) {
+            const cachedDate = new Date(cacheData.cached_at);
+            console.log('已加载缓存数据，缓存时间：' + cachedDate.toLocaleString());
+        }
+    } catch (e) {
+        console.error('加载缓存数据失败:', e);
+    }
+}
+
+// 页面加载时自动加载缓存
+document.addEventListener('DOMContentLoaded', loadCachedData);
+
 function calculateExpense() {
     const form = document.getElementById('expense-form');
     const formData = new FormData(form);
