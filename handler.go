@@ -364,6 +364,7 @@ type ExpenseUserData struct {
 	DisplayName string
 	IsAdmin     bool
 	Usage       float64
+	PrevUsage   float64 // 上周期使用量（用于计算本周期实际使用量 = Usage - PrevUsage）
 	Supplement  float64 // 补：额外承担总费用的百分比
 	Cost        float64
 }
@@ -411,6 +412,17 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 		endDate = time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Format("2006-01-02")
 	}
 
+	// 获取上个周期的使用量数据（用于自动填充上周期字段）
+	prevUsages := make(map[int]float64)
+	if latestRecord != nil {
+		usages, err := getExpenseUsages(latestRecord.ID)
+		if err == nil {
+			for _, u := range usages {
+				prevUsages[u.UserID] = u.Usage
+			}
+		}
+	}
+
 	var expenseUsers []ExpenseUserData
 	for _, u := range users {
 		expenseUsers = append(expenseUsers, ExpenseUserData{
@@ -419,6 +431,7 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 			DisplayName: u.DisplayName,
 			IsAdmin:     u.IsAdmin,
 			Usage:       0,
+			PrevUsage:   prevUsages[u.ID], // 自动填充上周期使用量
 			Cost:        0,
 		})
 	}
@@ -447,15 +460,26 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 		userCount = 1
 	}
 
-	var totalUsage float64
-	usages := make(map[int]float64)
+	var totalActualUsage float64
+	rawUsages := make(map[int]float64)    // 总额
+	prevUsages := make(map[int]float64)   // 上周期
+	actualUsages := make(map[int]float64) // 实际使用量 = 总额 - 上周期
 	supplements := make(map[int]float64)
 	for _, u := range users {
-		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		rawUsage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		prevUsage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("prev_usage_%d", u.ID)), 64)
 		supplement, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("supplement_%d", u.ID)), 64)
-		usages[u.ID] = usage
+
+		rawUsages[u.ID] = rawUsage
+		prevUsages[u.ID] = prevUsage
+		// 实际使用量 = 总额 - 上周期
+		actualUsage := rawUsage - prevUsage
+		if actualUsage < 0 {
+			actualUsage = 0
+		}
+		actualUsages[u.ID] = actualUsage
 		supplements[u.ID] = supplement
-		totalUsage += usage
+		totalActualUsage += actualUsage
 	}
 
 	// 计算总费用（月度）
@@ -474,7 +498,7 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 
 	results := make([]map[string]interface{}, 0)
 	for _, u := range users {
-		usage := usages[u.ID]
+		actualUsage := actualUsages[u.ID]
 		supplement := supplements[u.ID]
 		var cost float64
 
@@ -483,9 +507,9 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 			cost = totalFee * (supplement / 100.0)
 		}
 
-		// 再加上剩余费用的分摊部分
-		if totalUsage > 0 && remainingFee > 0 {
-			cost += (usage / totalUsage) * remainingFee
+		// 再加上剩余费用的分摊部分（使用实际使用量）
+		if totalActualUsage > 0 && remainingFee > 0 {
+			cost += (actualUsage / totalActualUsage) * remainingFee
 		} else if remainingFee > 0 {
 			// 如果没有使用量，平均分摊
 			cost += remainingFee / float64(userCount)
@@ -494,16 +518,18 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 		cost = math.Round(cost*100) / 100 // 保留两位小数
 
 		results = append(results, map[string]interface{}{
-			"user_id":    u.ID,
-			"usage":      usage,
-			"supplement": supplement,
-			"cost":       cost,
+			"user_id":      u.ID,
+			"usage":        rawUsages[u.ID],
+			"prev_usage":   prevUsages[u.ID],
+			"actual_usage": actualUsage,
+			"supplement":   supplement,
+			"cost":         cost,
 		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"total_usage": totalUsage,
+		"total_usage": totalActualUsage,
 		"results":     results,
 	})
 }
@@ -521,9 +547,11 @@ func handleExpenseSave(w http.ResponseWriter, r *http.Request) {
 	userInputs := make(map[int]UserExpenseInput)
 	for _, u := range users {
 		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		prevUsage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("prev_usage_%d", u.ID)), 64)
 		supplement, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("supplement_%d", u.ID)), 64)
 		userInputs[u.ID] = UserExpenseInput{
 			Usage:      usage,
+			PrevUsage:  prevUsage,
 			Supplement: supplement,
 		}
 	}
