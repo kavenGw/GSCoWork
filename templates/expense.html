@@ -84,8 +84,8 @@
                 </div>
             </div>
             <div class="config-info">
-                <p>计算公式：用户费用 = 补贴额 + (用户使用量 / 总使用量) × 剩余费用</p>
-                <p>其中：补贴额 = 总费用 × (补/100)，剩余费用 = 总费用 - 所有补贴总额，总费用 = 账户费用 + 服务器费用/12</p>
+                <p>计算公式：用户费用 = 补贴额 + (用户实际使用量 / 总实际使用量) × 剩余费用</p>
+                <p>其中：实际使用量 = 总额 - 上周期，补贴额 = 总费用 × (补/100)，剩余费用 = 总费用 - 所有补贴总额，总费用 = 账户费用 + 服务器费用/12</p>
             </div>
         </div>
 
@@ -95,7 +95,9 @@
                 <thead>
                     <tr>
                         <th>用户</th>
-                        <th>使用量</th>
+                        <th>总额</th>
+                        <th>上周期</th>
+                        <th>实际使用</th>
                         <th>补(%)</th>
                         <th>费用</th>
                     </tr>
@@ -112,8 +114,19 @@
                                    value="{{.Usage}}"
                                    step="0.01"
                                    min="0"
-                                   placeholder="输入使用量">
+                                   placeholder="输入总额">
                         </td>
+                        <td>
+                            <input type="number"
+                                   name="prev_usage_{{.UserID}}"
+                                   class="prev-usage-input"
+                                   data-user-id="{{.UserID}}"
+                                   value="{{.PrevUsage}}"
+                                   step="0.01"
+                                   min="0"
+                                   placeholder="上周期">
+                        </td>
+                        <td class="actual-usage-cell" data-user-id="{{.UserID}}">0.00</td>
                         <td>
                             <input type="number"
                                    name="supplement_{{.UserID}}"
@@ -132,6 +145,8 @@
                 <tfoot>
                     <tr class="total-row">
                         <td><strong>合计</strong></td>
+                        <td id="total-raw-usage">0</td>
+                        <td id="total-prev-usage">0</td>
                         <td id="total-usage">0</td>
                         <td id="total-supplement">0%</td>
                         <td id="total-cost">¥0.00</td>
@@ -157,14 +172,20 @@ function cacheExpenseData() {
         account_fee: document.getElementById('account_fee').value,
         server_fee: document.getElementById('server_fee').value,
         usages: {},
+        prev_usages: {},
         supplements: {},
         cached_at: new Date().toISOString()
     };
 
-    // 收集所有用户的使用量和补贴
+    // 收集所有用户的使用量、上周期和补贴
     document.querySelectorAll('.usage-input').forEach(input => {
         const userId = input.dataset.userId;
         cacheData.usages[userId] = input.value;
+    });
+
+    document.querySelectorAll('.prev-usage-input').forEach(input => {
+        const userId = input.dataset.userId;
+        cacheData.prev_usages[userId] = input.value;
     });
 
     document.querySelectorAll('.supplement-input').forEach(input => {
@@ -196,6 +217,16 @@ function loadCachedData() {
         if (cacheData.usages) {
             for (const [userId, value] of Object.entries(cacheData.usages)) {
                 const input = document.querySelector(`.usage-input[data-user-id="${userId}"]`);
+                if (input && value) {
+                    input.value = value;
+                }
+            }
+        }
+
+        // 恢复用户上周期数据
+        if (cacheData.prev_usages) {
+            for (const [userId, value] of Object.entries(cacheData.prev_usages)) {
+                const input = document.querySelector(`.prev-usage-input[data-user-id="${userId}"]`);
                 if (input && value) {
                     input.value = value;
                 }
@@ -238,8 +269,20 @@ function calculateExpense() {
     })
     .then(response => response.json())
     .then(data => {
-        // 更新总使用量
+        // 更新总使用量（实际使用量）
         document.getElementById('total-usage').textContent = data.total_usage.toFixed(2);
+
+        // 更新总额和上周期合计
+        let totalRawUsage = 0;
+        let totalPrevUsage = 0;
+        document.querySelectorAll('.usage-input').forEach(input => {
+            totalRawUsage += parseFloat(input.value) || 0;
+        });
+        document.querySelectorAll('.prev-usage-input').forEach(input => {
+            totalPrevUsage += parseFloat(input.value) || 0;
+        });
+        document.getElementById('total-raw-usage').textContent = totalRawUsage.toFixed(2);
+        document.getElementById('total-prev-usage').textContent = totalPrevUsage.toFixed(2);
 
         // 计算总补贴百分比
         let totalSupplement = 0;
@@ -248,9 +291,16 @@ function calculateExpense() {
         });
         document.getElementById('total-supplement').textContent = totalSupplement.toFixed(2) + '%';
 
-        // 更新每个用户的费用
+        // 更新每个用户的实际使用量和费用
         let totalCost = 0;
         data.results.forEach(result => {
+            // 更新实际使用量显示
+            const actualUsageCell = document.querySelector(`.actual-usage-cell[data-user-id="${result.user_id}"]`);
+            if (actualUsageCell) {
+                actualUsageCell.textContent = (result.actual_usage || 0).toFixed(2);
+            }
+
+            // 更新费用
             const costCell = document.querySelector(`.cost-cell[data-user-id="${result.user_id}"]`);
             if (costCell) {
                 costCell.textContent = '¥' + result.cost.toFixed(2);
@@ -269,6 +319,14 @@ function calculateExpense() {
 // 监听使用量输入变化，自动计算
 let debounceTimer;
 document.querySelectorAll('.usage-input').forEach(input => {
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(calculateExpense, 300);
+    });
+});
+
+// 监听上周期输入变化，自动计算
+document.querySelectorAll('.prev-usage-input').forEach(input => {
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(calculateExpense, 300);

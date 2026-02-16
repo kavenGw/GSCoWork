@@ -205,7 +205,8 @@ func deleteUser(id int) error {
 
 // UserExpenseInput 用户费用输入
 type UserExpenseInput struct {
-	Usage      float64
+	Usage      float64 // 总额
+	PrevUsage  float64 // 上周期数值
 	Supplement float64
 }
 
@@ -224,10 +225,16 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 		return 0, err
 	}
 
-	// 计算总使用量
-	var totalUsage float64
-	for _, input := range userInputs {
-		totalUsage += input.Usage
+	// 计算总实际使用量（总额 - 上周期）
+	var totalActualUsage float64
+	actualUsages := make(map[int]float64)
+	for userID, input := range userInputs {
+		actualUsage := input.Usage - input.PrevUsage
+		if actualUsage < 0 {
+			actualUsage = 0
+		}
+		actualUsages[userID] = actualUsage
+		totalActualUsage += actualUsage
 	}
 
 	// 获取用户数量
@@ -252,6 +259,7 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 
 	// 保存每个用户的使用量和计算的费用
 	for userID, input := range userInputs {
+		actualUsage := actualUsages[userID]
 		var calculatedCost float64
 
 		// 先计算该用户的补贴部分
@@ -259,14 +267,15 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 			calculatedCost = totalFee * (input.Supplement / 100.0)
 		}
 
-		// 再加上剩余费用的分摊部分
-		if totalUsage > 0 && remainingFee > 0 {
-			calculatedCost += (input.Usage / totalUsage) * remainingFee
+		// 再加上剩余费用的分摊部分（使用实际使用量）
+		if totalActualUsage > 0 && remainingFee > 0 {
+			calculatedCost += (actualUsage / totalActualUsage) * remainingFee
 		} else if remainingFee > 0 {
 			// 如果没有使用量，平均分摊
 			calculatedCost += remainingFee / float64(userCount)
 		}
 
+		// 保存的是总额（Usage），这样下次可以作为上周期使用
 		_, err = db.Exec(
 			`INSERT INTO expense_usages (expense_id, user_id, usage, supplement, calculated_cost) VALUES (?, ?, ?, ?, ?)`,
 			expenseID, userID, input.Usage, input.Supplement, calculatedCost,
