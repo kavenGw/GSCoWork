@@ -6,54 +6,6 @@
 {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
 {{if .Success}}<p class="success">{{.Success}}</p>{{end}}
 
-<!-- 用户列表管理 -->
-<div class="expense-section">
-    <div class="expense-header">
-        <h3>用户列表</h3>
-    </div>
-
-    {{if .CurrentUser.IsAdmin}}
-    <div class="user-add-form">
-        <form method="POST" action="/expense/user/add" class="inline-form-row">
-            <input type="text" name="username" placeholder="用户名" required>
-            <input type="password" name="password" placeholder="密码" required>
-            <input type="text" name="display_name" placeholder="显示名称" required>
-            <button type="submit" class="btn btn-add">添加用户</button>
-        </form>
-    </div>
-    {{end}}
-
-    <table class="user-table user-list-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>用户名</th>
-                <th>显示名称</th>
-                <th>管理员</th>
-                {{if .CurrentUser.IsAdmin}}<th>操作</th>{{end}}
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Users}}
-            <tr>
-                <td>{{.UserID}}</td>
-                <td>{{.Username}}</td>
-                <td>{{.DisplayName}}</td>
-                <td>{{if .IsAdmin}}是{{else}}否{{end}}</td>
-                {{if $.CurrentUser.IsAdmin}}
-                <td class="actions">
-                    <form method="POST" action="/expense/user/delete" class="inline-form" onsubmit="return confirm('确定删除用户 {{.Username}} 吗？');">
-                        <input type="hidden" name="id" value="{{.UserID}}">
-                        <button type="submit" class="btn btn-delete">删除</button>
-                    </form>
-                </td>
-                {{end}}
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
-
 <!-- 费用计算 -->
 <div class="expense-section">
     <div class="expense-header">
@@ -62,6 +14,7 @@
     </div>
 
     <form id="expense-form" method="POST" action="/expense/save">
+        <input type="hidden" name="total_user_count" id="total_user_count" value="{{.TotalUserCount}}">
         <div class="expense-config">
             <div class="config-row">
                 <div class="form-group">
@@ -75,8 +28,8 @@
             </div>
             <div class="config-row">
                 <div class="form-group">
-                    <label>账户费用</label>
-                    <input type="number" name="account_fee" id="account_fee" value="{{.AccountFee}}" step="0.01" required>
+                    <label>账户费用（已弃用）</label>
+                    <input type="number" name="account_fee" id="account_fee" value="{{.AccountFee}}" step="0.01" required disabled>
                 </div>
                 <div class="form-group">
                     <label>服务器费用（年费）</label>
@@ -84,8 +37,8 @@
                 </div>
             </div>
             <div class="config-info">
-                <p>计算公式：用户费用 = 补贴额 + (用户实际使用量 / 总实际使用量) × 剩余费用</p>
-                <p>其中：实际使用量 = 总额 - 上周期，补贴额 = 总费用 × (补/100)，剩余费用 = 总费用 - 所有补贴总额，总费用 = 账户费用 + 服务器费用/12</p>
+                <p>计算公式：用户费用 = (使用量 - 上周期) / 2800 + 服务器费用 / 12 / 用户数量</p>
+                <p>其中：用户数量包含admin（共{{.TotalUserCount}}人），但admin不参与使用量计算</p>
             </div>
         </div>
 
@@ -98,7 +51,6 @@
                         <th>总额</th>
                         <th>上周期</th>
                         <th>实际使用</th>
-                        <th>补(%)</th>
                         <th>费用</th>
                     </tr>
                 </thead>
@@ -127,17 +79,6 @@
                                    placeholder="上周期">
                         </td>
                         <td class="actual-usage-cell" data-user-id="{{.UserID}}">0.00</td>
-                        <td>
-                            <input type="number"
-                                   name="supplement_{{.UserID}}"
-                                   class="supplement-input"
-                                   data-user-id="{{.UserID}}"
-                                   value="{{.Supplement}}"
-                                   step="0.01"
-                                   min="0"
-                                   max="100"
-                                   placeholder="补%">
-                        </td>
                         <td class="cost-cell" data-user-id="{{.UserID}}">¥0.00</td>
                     </tr>
                     {{end}}
@@ -148,7 +89,6 @@
                         <td id="total-raw-usage">0</td>
                         <td id="total-prev-usage">0</td>
                         <td id="total-usage">0</td>
-                        <td id="total-supplement">0%</td>
                         <td id="total-cost">¥0.00</td>
                     </tr>
                 </tfoot>
@@ -173,11 +113,10 @@ function cacheExpenseData() {
         server_fee: document.getElementById('server_fee').value,
         usages: {},
         prev_usages: {},
-        supplements: {},
         cached_at: new Date().toISOString()
     };
 
-    // 收集所有用户的使用量、上周期和补贴
+    // 收集所有用户的使用量和上周期
     document.querySelectorAll('.usage-input').forEach(input => {
         const userId = input.dataset.userId;
         cacheData.usages[userId] = input.value;
@@ -186,11 +125,6 @@ function cacheExpenseData() {
     document.querySelectorAll('.prev-usage-input').forEach(input => {
         const userId = input.dataset.userId;
         cacheData.prev_usages[userId] = input.value;
-    });
-
-    document.querySelectorAll('.supplement-input').forEach(input => {
-        const userId = input.dataset.userId;
-        cacheData.supplements[userId] = input.value;
     });
 
     localStorage.setItem(EXPENSE_CACHE_KEY, JSON.stringify(cacheData));
@@ -227,16 +161,6 @@ function loadCachedData() {
         if (cacheData.prev_usages) {
             for (const [userId, value] of Object.entries(cacheData.prev_usages)) {
                 const input = document.querySelector(`.prev-usage-input[data-user-id="${userId}"]`);
-                if (input && value) {
-                    input.value = value;
-                }
-            }
-        }
-
-        // 恢复用户补贴
-        if (cacheData.supplements) {
-            for (const [userId, value] of Object.entries(cacheData.supplements)) {
-                const input = document.querySelector(`.supplement-input[data-user-id="${userId}"]`);
                 if (input && value) {
                     input.value = value;
                 }
@@ -284,13 +208,6 @@ function calculateExpense() {
         document.getElementById('total-raw-usage').textContent = totalRawUsage.toFixed(2);
         document.getElementById('total-prev-usage').textContent = totalPrevUsage.toFixed(2);
 
-        // 计算总补贴百分比
-        let totalSupplement = 0;
-        data.results.forEach(result => {
-            totalSupplement += result.supplement || 0;
-        });
-        document.getElementById('total-supplement').textContent = totalSupplement.toFixed(2) + '%';
-
         // 更新每个用户的实际使用量和费用
         let totalCost = 0;
         data.results.forEach(result => {
@@ -333,19 +250,7 @@ document.querySelectorAll('.prev-usage-input').forEach(input => {
     });
 });
 
-// 监听补贴输入变化，自动计算
-document.querySelectorAll('.supplement-input').forEach(input => {
-    input.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(calculateExpense, 300);
-    });
-});
-
 // 监听费用配置变化
-document.getElementById('account_fee').addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(calculateExpense, 300);
-});
 document.getElementById('server_fee').addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(calculateExpense, 300);
