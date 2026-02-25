@@ -28,8 +28,8 @@
             </div>
             <div class="config-row">
                 <div class="form-group">
-                    <label>账户费用（已弃用）</label>
-                    <input type="number" name="account_fee" id="account_fee" value="{{.AccountFee}}" step="0.01" required disabled>
+                    <label>账号费用</label>
+                    <input type="number" name="account_fee" id="account_fee" value="{{.AccountFee}}" step="0.01" required>
                 </div>
                 <div class="form-group">
                     <label>服务器费用（年费）</label>
@@ -37,7 +37,7 @@
                 </div>
             </div>
             <div class="config-info">
-                <p>计算公式：用户费用 = (使用量 - 上周期) / 2800 + 服务器费用 / 12 / 用户数量</p>
+                <p>计算公式：用户费用 = (使用量 - 上周期) / 2800 * 账号费用 + 服务器费用 / 12 / 用户数量</p>
                 <p>其中：用户数量包含admin（共{{.TotalUserCount}}人），但admin不参与使用量计算</p>
             </div>
         </div>
@@ -251,6 +251,11 @@ document.querySelectorAll('.prev-usage-input').forEach(input => {
 });
 
 // 监听费用配置变化
+document.getElementById('account_fee').addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(calculateExpense, 300);
+});
+
 document.getElementById('server_fee').addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(calculateExpense, 300);
