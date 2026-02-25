@@ -24,7 +24,7 @@
                 {{range .}}
                 <td>
                     {{if .Day}}
-                    <div class="day-cell {{statusClass .Status}}{{if $isOwner}} editable{{end}}"
+                    <div class="day-cell {{statusClass .Status}}{{if $isOwner}} editable{{end}}{{if .IsToday}} today{{end}}"
                          {{if $isOwner}}onclick="toggleStatus(this, {{$userID}}, '{{.Date}}')"{{end}}
                          data-status="{{.Status}}">
                         <span class="day-num">{{.Day}}</span>

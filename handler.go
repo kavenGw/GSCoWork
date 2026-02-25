@@ -105,9 +105,10 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 
 // 日历数据
 type CalendarDay struct {
-	Day    int
-	Date   string
-	Status int
+	Day     int
+	Date    string
+	Status  int
+	IsToday bool
 }
 
 type UserCalendar struct {
@@ -131,6 +132,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 
 	// 解析月份参数
 	now := time.Now()
+	todayStr := now.Format("2006-01-02")
 	year, month := now.Year(), int(now.Month())
 	if m := r.URL.Query().Get("month"); m != "" {
 		fmt.Sscanf(m, "%d-%d", &year, &month)
@@ -165,7 +167,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 			if s, ok := schedules[dateStr]; ok {
 				status = s
 			}
-			days = append(days, CalendarDay{Day: d, Date: dateStr, Status: status})
+			days = append(days, CalendarDay{Day: d, Date: dateStr, Status: status, IsToday: dateStr == todayStr})
 		}
 		// 补齐最后一周
 		for len(days)%7 != 0 {
