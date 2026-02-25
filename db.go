@@ -234,15 +234,15 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 	serverFeePerUser := serverFee / 12.0 / float64(totalUserCount)
 
 	// 保存每个用户的使用量和计算的费用
-	// 公式：（使用量 - 上周期）/ 2800 + 服务器费用/12/用户数量
+	// 公式：（使用量 - 上周期）/ 2800 * 账号费用 + 服务器费用/12/用户数量
 	for userID, input := range userInputs {
 		actualUsage := input.Usage - input.PrevUsage
 		if actualUsage < 0 {
 			actualUsage = 0
 		}
 
-		// 计算费用：(使用量 - 上周期) / 2800 + 服务器费用/12/用户数量
-		calculatedCost := actualUsage/2800.0 + serverFeePerUser
+		// 计算费用：(使用量 - 上周期) / 2800 * 账号费用 + 服务器费用/12/用户数量
+		calculatedCost := actualUsage/2800.0*accountFee + serverFeePerUser
 
 		// 保存的是总额（Usage），这样下次可以作为上周期使用
 		_, err = db.Exec(

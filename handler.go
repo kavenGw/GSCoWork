@@ -459,6 +459,7 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 
 // 计算费用（AJAX）
 func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
+	accountFee, _ := strconv.ParseFloat(r.FormValue("account_fee"), 64)
 	serverFee, _ := strconv.ParseFloat(r.FormValue("server_fee"), 64)
 	totalUserCount, _ := strconv.Atoi(r.FormValue("total_user_count"))
 
@@ -506,8 +507,8 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 		}
 		actualUsage := actualUsages[u.ID]
 
-		// 公式：(使用量 - 上周期) / 2800 + 服务器费用/12/用户数量
-		cost := actualUsage/2800.0 + serverFeePerUser
+		// 公式：(使用量 - 上周期) / 2800 * 账号费用 + 服务器费用/12/用户数量
+		cost := actualUsage/2800.0*accountFee + serverFeePerUser
 		cost = math.Round(cost*100) / 100 // 保留两位小数
 
 		results = append(results, map[string]interface{}{
