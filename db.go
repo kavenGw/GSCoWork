@@ -205,13 +205,13 @@ func deleteUser(id int) error {
 
 // UserExpenseInput 用户费用输入
 type UserExpenseInput struct {
-	Usage      float64 // 总额
-	PrevUsage  float64 // 上周期数值
-	Supplement float64
+	Usage     float64 // 总额
+	PrevUsage float64 // 上周期数值
 }
 
 // 创建费用记录
-func createExpenseRecord(startDate, endDate string, accountFee, serverFee float64, userInputs map[int]UserExpenseInput) (int64, error) {
+// totalUserCount 是包含admin在内的所有用户数（用于计算服务器费用分摊）
+func createExpenseRecord(startDate, endDate string, accountFee, serverFee float64, userInputs map[int]UserExpenseInput, totalUserCount int) (int64, error) {
 	result, err := db.Exec(
 		`INSERT INTO expense_records (start_date, end_date, account_fee, server_fee) VALUES (?, ?, ?, ?)`,
 		startDate, endDate, accountFee, serverFee,
@@ -225,60 +225,29 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 		return 0, err
 	}
 
-	// 计算总实际使用量（总额 - 上周期）
-	var totalActualUsage float64
-	actualUsages := make(map[int]float64)
+	// 确保用户数量至少为1
+	if totalUserCount == 0 {
+		totalUserCount = 1
+	}
+
+	// 计算每个用户的服务器费用分摊部分（所有用户平均分摊）
+	serverFeePerUser := serverFee / 12.0 / float64(totalUserCount)
+
+	// 保存每个用户的使用量和计算的费用
+	// 公式：（使用量 - 上周期）/ 2800 + 服务器费用/12/用户数量
 	for userID, input := range userInputs {
 		actualUsage := input.Usage - input.PrevUsage
 		if actualUsage < 0 {
 			actualUsage = 0
 		}
-		actualUsages[userID] = actualUsage
-		totalActualUsage += actualUsage
-	}
 
-	// 获取用户数量
-	userCount := len(userInputs)
-	if userCount == 0 {
-		userCount = 1
-	}
-
-	// 计算总费用（月度）
-	totalFee := accountFee + serverFee/12.0
-
-	// 计算所有用户的补贴总额
-	var totalSupplement float64
-	for _, input := range userInputs {
-		if input.Supplement > 0 {
-			totalSupplement += totalFee * (input.Supplement / 100.0)
-		}
-	}
-
-	// 剩余费用（需要按原公式分摊的部分）
-	remainingFee := totalFee - totalSupplement
-
-	// 保存每个用户的使用量和计算的费用
-	for userID, input := range userInputs {
-		actualUsage := actualUsages[userID]
-		var calculatedCost float64
-
-		// 先计算该用户的补贴部分
-		if input.Supplement > 0 {
-			calculatedCost = totalFee * (input.Supplement / 100.0)
-		}
-
-		// 再加上剩余费用的分摊部分（使用实际使用量）
-		if totalActualUsage > 0 && remainingFee > 0 {
-			calculatedCost += (actualUsage / totalActualUsage) * remainingFee
-		} else if remainingFee > 0 {
-			// 如果没有使用量，平均分摊
-			calculatedCost += remainingFee / float64(userCount)
-		}
+		// 计算费用：(使用量 - 上周期) / 2800 + 服务器费用/12/用户数量
+		calculatedCost := actualUsage/2800.0 + serverFeePerUser
 
 		// 保存的是总额（Usage），这样下次可以作为上周期使用
 		_, err = db.Exec(
 			`INSERT INTO expense_usages (expense_id, user_id, usage, supplement, calculated_cost) VALUES (?, ?, ?, ?, ?)`,
-			expenseID, userID, input.Usage, input.Supplement, calculatedCost,
+			expenseID, userID, input.Usage, 0, calculatedCost,
 		)
 		if err != nil {
 			return 0, err
@@ -322,7 +291,7 @@ func getExpenseRecordByID(id int) (*ExpenseRecord, error) {
 // 获取费用记录的用户使用量
 func getExpenseUsages(expenseID int) ([]ExpenseUsage, error) {
 	rows, err := db.Query(`
-		SELECT eu.id, eu.expense_id, eu.user_id, u.username, u.display_name, eu.usage, COALESCE(eu.supplement, 0), eu.calculated_cost
+		SELECT eu.id, eu.expense_id, eu.user_id, u.username, u.display_name, eu.usage, eu.calculated_cost
 		FROM expense_usages eu
 		LEFT JOIN users u ON eu.user_id = u.id
 		WHERE eu.expense_id = ?
@@ -337,7 +306,7 @@ func getExpenseUsages(expenseID int) ([]ExpenseUsage, error) {
 	for rows.Next() {
 		var eu ExpenseUsage
 		var username, displayName sql.NullString
-		rows.Scan(&eu.ID, &eu.ExpenseID, &eu.UserID, &username, &displayName, &eu.Usage, &eu.Supplement, &eu.CalculatedCost)
+		rows.Scan(&eu.ID, &eu.ExpenseID, &eu.UserID, &username, &displayName, &eu.Usage, &eu.CalculatedCost)
 		if username.Valid {
 			eu.Username = username.String
 		} else {
