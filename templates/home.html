@@ -50,7 +50,10 @@ function toggleStatus(el, userID, date) {
     .then(r => r.json())
     .then(data => {
         el.dataset.status = data.status;
-        el.className = 'day-cell ' + statusClass(data.status) + ' editable';
+        var extra = '';
+        if (el.classList.contains('today')) extra += ' today';
+        if (el.classList.contains('sunday')) extra += ' sunday';
+        el.className = 'day-cell ' + statusClass(data.status) + ' editable' + extra;
         el.querySelector('.day-label').textContent = statusLabel(data.status);
     });
 }
