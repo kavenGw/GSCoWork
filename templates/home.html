@@ -13,7 +13,7 @@
     <table class="calendar">
         <thead>
             <tr>
-                <th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th>
+                <th class="sunday">日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th>
             </tr>
         </thead>
         <tbody>
@@ -21,14 +21,14 @@
             {{$userID := .User.ID}}
             {{range .Weeks}}
             <tr>
-                {{range .}}
+                {{range $idx, $day := .}}
                 <td>
-                    {{if .Day}}
-                    <div class="day-cell {{statusClass .Status}}{{if $isOwner}} editable{{end}}{{if .IsToday}} today{{end}}"
-                         {{if $isOwner}}onclick="toggleStatus(this, {{$userID}}, '{{.Date}}')"{{end}}
-                         data-status="{{.Status}}">
-                        <span class="day-num">{{.Day}}</span>
-                        <span class="day-label">{{statusLabel .Status}}</span>
+                    {{if $day.Day}}
+                    <div class="day-cell {{statusClass $day.Status}}{{if $isOwner}} editable{{end}}{{if $day.IsToday}} today{{end}}{{if eq $idx 0}} sunday{{end}}"
+                         {{if $isOwner}}onclick="toggleStatus(this, {{$userID}}, '{{$day.Date}}')"{{end}}
+                         data-status="{{$day.Status}}">
+                        <span class="day-num">{{$day.Day}}</span>
+                        <span class="day-label">{{statusLabel $day.Status}}</span>
                     </div>
                     {{end}}
                 </td>
