@@ -144,6 +144,7 @@ body {
 .day-cell.default { background: #f0f0f0; }
 .day-cell.rest { background: #a8e6cf; color: #1b5e20; }
 .day-cell.fire { background: #ff8a80; color: #b71c1c; }
+.day-cell.today .day-num { color: #f1c40f; font-weight: bold; }
 
 /* 后台管理 */
 .admin-section { margin-bottom: 32px; }
