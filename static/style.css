@@ -145,6 +145,8 @@ body {
 .day-cell.rest { background: #a8e6cf; color: #1b5e20; }
 .day-cell.fire { background: #ff8a80; color: #b71c1c; }
 .day-cell.today .day-num { color: #f1c40f; font-weight: bold; }
+.day-cell.sunday .day-num { color: #e74c3c; }
+.calendar th.sunday { color: #e74c3c; }
 
 /* 后台管理 */
 .admin-section { margin-bottom: 32px; }
