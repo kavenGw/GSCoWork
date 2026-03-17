@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 var (
@@ -56,9 +57,11 @@ func main() {
 }
 
 func runServer() {
-	// 写入 PID 文件
-	if err := writePIDFile(); err != nil {
-		log.Printf("警告: 无法写入 PID 文件: %v", err)
+	// 前台运行时写入 PID 文件（daemon 模式由父进程写入）
+	if len(flag.Args()) == 0 {
+		if err := writePIDFile(); err != nil {
+			log.Printf("警告: 无法写入 PID 文件: %v", err)
+		}
 	}
 
 	initDB(*dbPath)
@@ -180,7 +183,21 @@ func startDaemon() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("GSCoWork 已在后台启动 (PID: %d)\n", cmd.Process.Pid)
+	// 父进程写入子进程 PID 到文件，不依赖子进程写入
+	childPid := cmd.Process.Pid
+	if err := os.WriteFile(*pidFile, []byte(strconv.Itoa(childPid)), 0644); err != nil {
+		fmt.Printf("警告: 无法写入 PID 文件: %v\n", err)
+	}
+
+	// 等待短暂时间后验证子进程存活
+	time.Sleep(500 * time.Millisecond)
+	if !isProcessRunning(childPid) {
+		fmt.Printf("启动失败: 进程 %d 已退出，请检查日志 %s\n", childPid, logFile)
+		os.Remove(*pidFile)
+		os.Exit(1)
+	}
+
+	fmt.Printf("GSCoWork 已在后台启动 (PID: %d)\n", childPid)
 	fmt.Printf("日志文件: %s\n", logFile)
 }
 
@@ -206,12 +223,29 @@ func stopDaemon() {
 
 	// 发送 SIGTERM 信号优雅停止
 	if err := process.Signal(syscall.SIGTERM); err != nil {
-		fmt.Printf("停止失败: %v\n", err)
+		fmt.Printf("发送 SIGTERM 失败: %v\n", err)
+	}
+
+	// 等待进程退出，最多 5 秒
+	for i := 0; i < 10; i++ {
+		time.Sleep(500 * time.Millisecond)
+		if !isProcessRunning(pid) {
+			os.Remove(*pidFile)
+			fmt.Printf("GSCoWork 已停止 (PID: %d)\n", pid)
+			return
+		}
+	}
+
+	// SIGTERM 超时，强制 SIGKILL
+	fmt.Println("SIGTERM 超时，发送 SIGKILL...")
+	if err := process.Signal(syscall.SIGKILL); err != nil {
+		fmt.Printf("发送 SIGKILL 失败: %v\n", err)
 		return
 	}
 
+	time.Sleep(500 * time.Millisecond)
 	os.Remove(*pidFile)
-	fmt.Printf("GSCoWork 已停止 (PID: %d)\n", pid)
+	fmt.Printf("GSCoWork 已强制停止 (PID: %d)\n", pid)
 }
 
 // showStatus 显示服务运行状态
