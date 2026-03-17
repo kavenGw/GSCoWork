@@ -205,8 +205,7 @@ func deleteUser(id int) error {
 
 // UserExpenseInput 用户费用输入
 type UserExpenseInput struct {
-	Usage     float64 // 总额
-	PrevUsage float64 // 上周期数值
+	Usage float64 // 使用量
 }
 
 // 创建费用记录
@@ -234,17 +233,11 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 	serverFeePerUser := serverFee / 12.0 / float64(totalUserCount)
 
 	// 保存每个用户的使用量和计算的费用
-	// 公式：（使用量 - 上周期）/ 2800 * 账号费用 + 服务器费用/12/用户数量
+	// 公式：使用量 / 2800 * 账号费用 + 服务器费用/12/用户数量
 	for userID, input := range userInputs {
-		actualUsage := input.Usage - input.PrevUsage
-		if actualUsage < 0 {
-			actualUsage = 0
-		}
+		// 计算费用：使用量 / 2800 * 账号费用 + 服务器费用/12/用户数量
+		calculatedCost := input.Usage/2800.0*accountFee + serverFeePerUser
 
-		// 计算费用：(使用量 - 上周期) / 2800 * 账号费用 + 服务器费用/12/用户数量
-		calculatedCost := actualUsage/2800.0*accountFee + serverFeePerUser
-
-		// 保存的是总额（Usage），这样下次可以作为上周期使用
 		_, err = db.Exec(
 			`INSERT INTO expense_usages (expense_id, user_id, usage, supplement, calculated_cost) VALUES (?, ?, ?, ?, ?)`,
 			expenseID, userID, input.Usage, 0, calculatedCost,
