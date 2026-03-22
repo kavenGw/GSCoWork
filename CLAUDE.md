@@ -12,7 +12,7 @@ GSCoWork 是一个协作办公日历 Web 应用，团队成员可查看彼此日
 # 构建
 go build -o gscowork .
 
-# 运行（默认 :8080，数据库 data.db）
+# 运行（默认 :8081，数据库 data.db）
 ./gscowork
 
 # 自定义参数

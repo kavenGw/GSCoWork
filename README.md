@@ -16,14 +16,14 @@ go build -o gscowork .
 ./gscowork
 ```
 
-访问 `http://localhost:8080`
+访问 `http://localhost:8081`
 
 默认管理员账号：`admin` / `admin123`
 
 ### 参数
 
 ```
--port 8080    监听端口
+-port 8081    监听端口（默认值）
 -db data.db   数据库文件路径
 ```
 
@@ -39,7 +39,7 @@ sudo ./gscowork start &
 ## 直接运行（开发测试）
 
 ```bash
-./gscowork -port 8080 -db data.db
+./gscowork -port 8081 -db data.db
 ```
 
 
