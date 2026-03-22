@@ -20,7 +20,7 @@ var (
 )
 
 func main() {
-	port = flag.Int("port", 8080, "监听端口")
+	port = flag.Int("port", 8081, "监听端口")
 	dbPath = flag.String("db", "data.db", "数据库文件路径")
 	pidFile = flag.String("pid", "/var/run/gscowork.pid", "PID 文件路径")
 	flag.Parse()
