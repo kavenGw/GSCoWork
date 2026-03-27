@@ -361,12 +361,15 @@ func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 // 费用展示数据
 type ExpenseUserData struct {
-	UserID      int
-	Username    string
-	DisplayName string
-	IsAdmin     bool
-	Usage       float64
-	Cost        float64
+	UserID        int
+	Username      string
+	DisplayName   string
+	IsAdmin       bool
+	Usage         float64
+	DiscountUsage float64
+	DiscountRate  float64
+	TotalUsage    float64
+	Cost          float64
 }
 
 type ExpensePageData struct {
@@ -467,15 +470,21 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 
 	var totalUsage float64
 	usages := make(map[int]float64)
+	discountUsages := make(map[int]float64)
+	discountRates := make(map[int]float64)
 
-	// 只处理非admin用户
 	for _, u := range users {
 		if u.IsAdmin {
 			continue
 		}
 		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		discountUsage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("discount_usage_%d", u.ID)), 64)
+		discountRate, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("discount_rate_%d", u.ID)), 64)
 		usages[u.ID] = usage
-		totalUsage += usage
+		discountUsages[u.ID] = discountUsage
+		discountRates[u.ID] = discountRate
+		userTotalUsage := usage + discountUsage*discountRate
+		totalUsage += userTotalUsage
 	}
 
 	results := make([]map[string]interface{}, 0)
@@ -484,15 +493,16 @@ func handleExpenseCalculate(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		usage := usages[u.ID]
+		userTotalUsage := usage + discountUsages[u.ID]*discountRates[u.ID]
 
-		// 公式：使用量 / 2800 * 账号费用 + 服务器费用/12/用户数量
-		cost := usage/2800.0*accountFee + serverFeePerUser
-		cost = math.Round(cost*100) / 100 // 保留两位小数
+		cost := userTotalUsage/2800.0*accountFee + serverFeePerUser
+		cost = math.Round(cost*100) / 100
 
 		results = append(results, map[string]interface{}{
-			"user_id": u.ID,
-			"usage":   usage,
-			"cost":    cost,
+			"user_id":     u.ID,
+			"usage":       usage,
+			"total_usage": userTotalUsage,
+			"cost":        cost,
 		})
 	}
 
@@ -524,8 +534,12 @@ func handleExpenseSave(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		usage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("usage_%d", u.ID)), 64)
+		discountUsage, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("discount_usage_%d", u.ID)), 64)
+		discountRate, _ := strconv.ParseFloat(r.FormValue(fmt.Sprintf("discount_rate_%d", u.ID)), 64)
 		userInputs[u.ID] = UserExpenseInput{
-			Usage: usage,
+			Usage:         usage,
+			DiscountUsage: discountUsage,
+			DiscountRate:  discountRate,
 		}
 	}
 

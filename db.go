@@ -239,12 +239,12 @@ func createExpenseRecord(startDate, endDate string, accountFee, serverFee float6
 	// 保存每个用户的使用量和计算的费用
 	// 公式：使用量 / 2800 * 账号费用 + 服务器费用/12/用户数量
 	for userID, input := range userInputs {
-		// 计算费用：使用量 / 2800 * 账号费用 + 服务器费用/12/用户数量
-		calculatedCost := input.Usage/2800.0*accountFee + serverFeePerUser
+		totalUsage := input.Usage + input.DiscountUsage*input.DiscountRate
+		calculatedCost := totalUsage/2800.0*accountFee + serverFeePerUser
 
 		_, err = db.Exec(
-			`INSERT INTO expense_usages (expense_id, user_id, usage, supplement, calculated_cost) VALUES (?, ?, ?, ?, ?)`,
-			expenseID, userID, input.Usage, 0, calculatedCost,
+			`INSERT INTO expense_usages (expense_id, user_id, usage, supplement, calculated_cost, discount_usage, discount_rate) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			expenseID, userID, input.Usage, 0, calculatedCost, input.DiscountUsage, input.DiscountRate,
 		)
 		if err != nil {
 			return 0, err
@@ -288,7 +288,8 @@ func getExpenseRecordByID(id int) (*ExpenseRecord, error) {
 // 获取费用记录的用户使用量
 func getExpenseUsages(expenseID int) ([]ExpenseUsage, error) {
 	rows, err := db.Query(`
-		SELECT eu.id, eu.expense_id, eu.user_id, u.username, u.display_name, eu.usage, eu.calculated_cost
+		SELECT eu.id, eu.expense_id, eu.user_id, u.username, u.display_name,
+		       eu.usage, eu.discount_usage, eu.discount_rate, eu.calculated_cost
 		FROM expense_usages eu
 		LEFT JOIN users u ON eu.user_id = u.id
 		WHERE eu.expense_id = ?
@@ -303,7 +304,8 @@ func getExpenseUsages(expenseID int) ([]ExpenseUsage, error) {
 	for rows.Next() {
 		var eu ExpenseUsage
 		var username, displayName sql.NullString
-		rows.Scan(&eu.ID, &eu.ExpenseID, &eu.UserID, &username, &displayName, &eu.Usage, &eu.CalculatedCost)
+		rows.Scan(&eu.ID, &eu.ExpenseID, &eu.UserID, &username, &displayName,
+			&eu.Usage, &eu.DiscountUsage, &eu.DiscountRate, &eu.CalculatedCost)
 		if username.Valid {
 			eu.Username = username.String
 		} else {
