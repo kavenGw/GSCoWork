@@ -426,12 +426,15 @@ func handleExpensePage(w http.ResponseWriter, r *http.Request) {
 			continue // 跳过admin用户
 		}
 		expenseUsers = append(expenseUsers, ExpenseUserData{
-			UserID:      u.ID,
-			Username:    u.Username,
-			DisplayName: u.DisplayName,
-			IsAdmin:     u.IsAdmin,
-			Usage:       0,
-			Cost:        0,
+			UserID:        u.ID,
+			Username:      u.Username,
+			DisplayName:   u.DisplayName,
+			IsAdmin:       u.IsAdmin,
+			Usage:         0,
+			DiscountUsage: 0,
+			DiscountRate:  0.5,
+			TotalUsage:    0,
+			Cost:          0,
 		})
 	}
 
@@ -553,10 +556,13 @@ func handleExpenseSave(w http.ResponseWriter, r *http.Request) {
 			}
 			input := userInputs[u.ID]
 			expenseUsers = append(expenseUsers, ExpenseUserData{
-				UserID:      u.ID,
-				Username:    u.Username,
-				DisplayName: u.DisplayName,
-				Usage:       input.Usage,
+				UserID:        u.ID,
+				Username:      u.Username,
+				DisplayName:   u.DisplayName,
+				Usage:         input.Usage,
+				DiscountUsage: input.DiscountUsage,
+				DiscountRate:  input.DiscountRate,
+				Cost:          0,
 			})
 		}
 
@@ -609,7 +615,8 @@ func handleExpenseDetail(w http.ResponseWriter, r *http.Request) {
 	// 计算总使用量和总费用
 	var totalUsage, totalCost float64
 	for _, u := range usages {
-		totalUsage += u.Usage
+		userTotal := u.Usage + u.DiscountUsage*u.DiscountRate
+		totalUsage += userTotal
 		totalCost += u.CalculatedCost
 	}
 
