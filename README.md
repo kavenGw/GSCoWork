@@ -29,11 +29,28 @@ go build -o gscowork .
 
 ## 部署到 Debian
 
-### 1. 构建
+### 一键更新部署
+
+```bash
+sudo bash update_and_run.sh
+```
+
+自动完成：停止服务 → 拉取最新代码 → 编译 → 启动服务。
+
+### 手动部署
 
 ```bash
 GOOS=linux GOARCH=amd64 go build -o gscowork .
-sudo ./gscowork start &
+sudo ./gscowork start
+```
+
+### 守护进程管理
+
+```bash
+sudo ./gscowork start     # 后台启动
+sudo ./gscowork stop      # 停止服务
+sudo ./gscowork restart   # 重启服务
+sudo ./gscowork status    # 查看状态
 ```
 
 ## 直接运行（开发测试）
