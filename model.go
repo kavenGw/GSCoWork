@@ -41,7 +41,9 @@ type ExpenseUsage struct {
 	UserID         int
 	Username       string
 	DisplayName    string
-	Usage          float64 // 使用量（总额）
+	Usage          float64 // 使用量
+	DiscountUsage  float64 // 折扣使用量
+	DiscountRate   float64 // 折扣率
 	CalculatedCost float64 // 计算出的费用
 }
 

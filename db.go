@@ -66,6 +66,8 @@ func initDB(dbPath string) {
 
 	// 添加 supplement 列（如果不存在）
 	db.Exec(`ALTER TABLE expense_usages ADD COLUMN supplement REAL NOT NULL DEFAULT 0`)
+	db.Exec(`ALTER TABLE expense_usages ADD COLUMN discount_usage REAL NOT NULL DEFAULT 0`)
+	db.Exec(`ALTER TABLE expense_usages ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0.5`)
 
 	// 创建默认 admin 账号
 	var count int
@@ -205,7 +207,9 @@ func deleteUser(id int) error {
 
 // UserExpenseInput 用户费用输入
 type UserExpenseInput struct {
-	Usage float64 // 使用量
+	Usage         float64 // 使用量
+	DiscountUsage float64 // 折扣使用量
+	DiscountRate  float64 // 折扣率
 }
 
 // 创建费用记录
