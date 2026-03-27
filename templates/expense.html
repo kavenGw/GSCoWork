@@ -37,7 +37,8 @@
                 </div>
             </div>
             <div class="config-info">
-                <p>计算公式：用户费用 = 使用量 / 2800 * 账号费用 + 服务器费用 / 12 / 用户数量</p>
+                <p>计算公式：用户费用 = 总使用量 / 2800 * 账号费用 + 服务器费用 / 12 / 用户数量</p>
+                <p>总使用量 = 使用量 + 折扣使用量 × 折扣率</p>
                 <p>其中：用户数量包含admin（共{{.TotalUserCount}}人），但admin不参与使用量计算</p>
             </div>
         </div>
@@ -49,6 +50,9 @@
                     <tr>
                         <th>用户</th>
                         <th>使用量</th>
+                        <th>折扣使用量</th>
+                        <th>折扣率</th>
+                        <th>总使用量</th>
                         <th>费用</th>
                     </tr>
                 </thead>
@@ -64,8 +68,30 @@
                                    value="{{.Usage}}"
                                    step="0.01"
                                    min="0"
-                                   placeholder="输入使用量">
+                                   placeholder="使用量">
                         </td>
+                        <td>
+                            <input type="number"
+                                   name="discount_usage_{{.UserID}}"
+                                   class="discount-usage-input"
+                                   data-user-id="{{.UserID}}"
+                                   value="{{.DiscountUsage}}"
+                                   step="0.01"
+                                   min="0"
+                                   placeholder="折扣使用量">
+                        </td>
+                        <td>
+                            <input type="number"
+                                   name="discount_rate_{{.UserID}}"
+                                   class="discount-rate-input"
+                                   data-user-id="{{.UserID}}"
+                                   value="{{.DiscountRate}}"
+                                   step="0.01"
+                                   min="0"
+                                   max="1"
+                                   placeholder="折扣率">
+                        </td>
+                        <td class="total-usage-cell" data-user-id="{{.UserID}}">0.00</td>
                         <td class="cost-cell" data-user-id="{{.UserID}}">¥0.00</td>
                     </tr>
                     {{end}}
@@ -74,6 +100,9 @@
                     <tr class="total-row">
                         <td><strong>合计</strong></td>
                         <td id="total-usage">0</td>
+                        <td></td>
+                        <td></td>
+                        <td id="total-total-usage">0</td>
                         <td id="total-cost">¥0.00</td>
                     </tr>
                 </tfoot>
@@ -97,13 +126,19 @@ function cacheExpenseData() {
         account_fee: document.getElementById('account_fee').value,
         server_fee: document.getElementById('server_fee').value,
         usages: {},
+        discount_usages: {},
+        discount_rates: {},
         cached_at: new Date().toISOString()
     };
 
-    // 收集所有用户的使用量
     document.querySelectorAll('.usage-input').forEach(input => {
-        const userId = input.dataset.userId;
-        cacheData.usages[userId] = input.value;
+        cacheData.usages[input.dataset.userId] = input.value;
+    });
+    document.querySelectorAll('.discount-usage-input').forEach(input => {
+        cacheData.discount_usages[input.dataset.userId] = input.value;
+    });
+    document.querySelectorAll('.discount-rate-input').forEach(input => {
+        cacheData.discount_rates[input.dataset.userId] = input.value;
     });
 
     localStorage.setItem(EXPENSE_CACHE_KEY, JSON.stringify(cacheData));
@@ -135,6 +170,18 @@ function loadCachedData() {
                 }
             }
         }
+        if (cacheData.discount_usages) {
+            for (const [userId, value] of Object.entries(cacheData.discount_usages)) {
+                const input = document.querySelector(`.discount-usage-input[data-user-id="${userId}"]`);
+                if (input && value) input.value = value;
+            }
+        }
+        if (cacheData.discount_rates) {
+            for (const [userId, value] of Object.entries(cacheData.discount_rates)) {
+                const input = document.querySelector(`.discount-rate-input[data-user-id="${userId}"]`);
+                if (input && value) input.value = value;
+            }
+        }
 
         // 自动计算费用
         calculateExpense();
@@ -162,19 +209,24 @@ function calculateExpense() {
     })
     .then(response => response.json())
     .then(data => {
-        // 更新总使用量
         document.getElementById('total-usage').textContent = data.total_usage.toFixed(2);
 
-        // 更新每个用户的费用
         let totalCost = 0;
+        let totalTotalUsage = 0;
         data.results.forEach(result => {
             const costCell = document.querySelector(`.cost-cell[data-user-id="${result.user_id}"]`);
             if (costCell) {
                 costCell.textContent = '¥' + result.cost.toFixed(2);
                 totalCost += result.cost;
             }
+            const totalUsageCell = document.querySelector(`.total-usage-cell[data-user-id="${result.user_id}"]`);
+            if (totalUsageCell) {
+                totalUsageCell.textContent = result.total_usage.toFixed(2);
+                totalTotalUsage += result.total_usage;
+            }
         });
 
+        document.getElementById('total-total-usage').textContent = totalTotalUsage.toFixed(2);
         document.getElementById('total-cost').textContent = '¥' + totalCost.toFixed(2);
     })
     .catch(error => {
@@ -186,6 +238,12 @@ function calculateExpense() {
 // 监听使用量输入变化，自动计算
 let debounceTimer;
 document.querySelectorAll('.usage-input').forEach(input => {
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(calculateExpense, 300);
+    });
+});
+document.querySelectorAll('.discount-usage-input, .discount-rate-input').forEach(input => {
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(calculateExpense, 300);
