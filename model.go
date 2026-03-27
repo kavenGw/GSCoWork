@@ -47,6 +47,10 @@ type ExpenseUsage struct {
 	CalculatedCost float64 // 计算出的费用
 }
 
+func (e ExpenseUsage) TotalUsage() float64 {
+	return e.Usage + e.DiscountUsage*e.DiscountRate
+}
+
 // 默认费用配置
 const (
 	DefaultAccountFee = 550.0

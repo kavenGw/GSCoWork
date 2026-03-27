@@ -29,6 +29,9 @@
             <tr>
                 <th>用户</th>
                 <th>使用量</th>
+                <th>折扣使用量</th>
+                <th>折扣率</th>
+                <th>总使用量</th>
                 <th>费用</th>
             </tr>
         </thead>
@@ -37,6 +40,9 @@
             <tr>
                 <td>{{.DisplayName}} ({{.Username}})</td>
                 <td>{{printf "%.2f" .Usage}}</td>
+                <td>{{printf "%.2f" .DiscountUsage}}</td>
+                <td>{{printf "%.2f" .DiscountRate}}</td>
+                <td>{{printf "%.2f" .TotalUsage}}</td>
                 <td>¥{{printf "%.2f" .CalculatedCost}}</td>
             </tr>
             {{end}}
@@ -44,6 +50,9 @@
         <tfoot>
             <tr class="total-row">
                 <td><strong>合计</strong></td>
+                <td></td>
+                <td></td>
+                <td></td>
                 <td><strong>{{printf "%.2f" .TotalUsage}}</strong></td>
                 <td><strong>¥{{printf "%.2f" .TotalCost}}</strong></td>
             </tr>
